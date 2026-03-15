@@ -288,6 +288,7 @@ func ParseText(name, text string) (KeyValuePairs, error) {
 		orderedPairs: make([]KeyValuePair, 0),
 	}
 
+	firstIteration := true
 	for {
 		err := lex.skipWhiteSpace()
 		if err != nil {
@@ -302,6 +303,50 @@ func ParseText(name, text string) (KeyValuePairs, error) {
 
 		if lex.peek() == eof {
 			break
+		}
+
+		if firstIteration {
+			firstIteration = false
+			r := lex.peek()
+
+			isRawValue := false
+			if !unicode.IsLetter(r) && r != '_' {
+				// Starts with {, ", digit, -, [ etc. — definitely a raw value
+				isRawValue = true
+			} else {
+				// Could be identifier=value OR a bare keyword (true/false/nil)
+				saved := lex.save()
+				_, _ = readLuaIdentifier(lex)
+				lex.skipSpaceRunes()
+				if lex.peek() != '=' {
+					isRawValue = true
+				}
+				lex.restore(saved)
+			}
+
+			if isRawValue {
+				kvPair, err := readRawValue(lex)
+				if err != nil {
+					end := lex.start + 10
+					if end > len(lex.input) {
+						end = len(lex.input)
+					}
+					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, position %d, next %q: %w",
+						name, lex.line, lex.pos, lex.input[lex.start:end], err)
+				}
+				kvPairs.orderedPairs = append(kvPairs.orderedPairs, kvPair)
+
+				// Expect EOF after raw value (skip trailing whitespace/comments)
+				err = lex.skipWhiteSpace()
+				if err != nil {
+					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: %w", name, err)
+				}
+				if lex.peek() != eof {
+					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: unexpected content after raw value at line %d, position %d",
+						name, lex.line, lex.pos)
+				}
+				break
+			}
 		}
 
 		kvPair, err := readSavedVariable(lex)
@@ -321,6 +366,48 @@ func ParseText(name, text string) (KeyValuePairs, error) {
 	kvPairs.NumValues = lex.numValues
 
 	return kvPairs, nil
+}
+
+func readRawValue(lex *lexer) (KeyValuePair, error) {
+	value, err := readLuaValue(lex)
+	if err != nil {
+		return KeyValuePair{}, err
+	}
+
+	return KeyValuePair{
+		Key: Key{
+			Type:   Identifier,
+			Source: "@root",
+			Raw:    "@root",
+		},
+		Value: value,
+	}, nil
+}
+
+type lexerState struct {
+	start     int
+	pos       int
+	width     int
+	line      int
+	numValues int
+}
+
+func (l *lexer) save() lexerState {
+	return lexerState{
+		start:     l.start,
+		pos:       l.pos,
+		width:     l.width,
+		line:      l.line,
+		numValues: l.numValues,
+	}
+}
+
+func (l *lexer) restore(s lexerState) {
+	l.start = s.start
+	l.pos = s.pos
+	l.width = s.width
+	l.line = s.line
+	l.numValues = s.numValues
 }
 
 type lexer struct {
