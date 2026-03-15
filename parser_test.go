@@ -306,6 +306,92 @@ func TestParseText_TableNoTrailingComma(t *testing.T) {
 	}
 }
 
+func TestParseText_RawValues(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		valueType ValueType
+		raw       any
+	}{
+		{"raw table", `{["a"]=1,["b"]=2}`, TableValue, nil},
+		{"raw string", `"hello"`, StringValue, "hello"},
+		{"raw int", "42", IntValue, int64(42)},
+		{"raw negative int", "-7", IntValue, int64(-7)},
+		{"raw float", "3.14", FloatValue, 3.14},
+		{"raw bool true", "true", BoolValue, true},
+		{"raw bool false", "false", BoolValue, false},
+		{"raw nil", "nil", NilValue, nil},
+		{"raw empty table", "{}", EmptyValue, nil},
+		{"raw array", `{"a","b","c"}`, TableValue, nil},
+		{"with leading comment", "-- comment\n42", IntValue, int64(42)},
+		{"with surrounding whitespace", "  42  ", IntValue, int64(42)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseText("input", tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.Len() != 1 {
+				t.Fatalf("expected 1 pair, got %d", result.Len())
+			}
+			pair := result.orderedPairs[0]
+			if pair.Key.Source != "@root" {
+				t.Errorf("expected key %q, got %q", "@root", pair.Key.Source)
+			}
+			if pair.Key.Type != Identifier {
+				t.Errorf("expected key type Identifier, got %v", pair.Key.Type)
+			}
+			if pair.Value.Type != tt.valueType {
+				t.Errorf("expected value type %v, got %v", tt.valueType, pair.Value.Type)
+			}
+			// Skip raw comparison for table types (compared by reference)
+			if tt.raw != nil && pair.Value.Raw != tt.raw {
+				t.Errorf("expected raw %v, got %v", tt.raw, pair.Value.Raw)
+			}
+		})
+	}
+}
+
+func TestParseText_RawValueErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"trailing content after int", "42 foo"},
+		{"trailing content after table", "{} foo=1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseText("input", tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
+func TestParseText_RawValueNoRegression(t *testing.T) {
+	// Identifiers that start with keywords should still parse as variable assignments
+	input := "true_val=true"
+	result, err := ParseText("input", input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Len() != 1 {
+		t.Fatalf("expected 1 pair, got %d", result.Len())
+	}
+	pair := result.orderedPairs[0]
+	if pair.Key.Source != "true_val" {
+		t.Errorf("expected key %q, got %q", "true_val", pair.Key.Source)
+	}
+	if pair.Value.Type != BoolValue {
+		t.Errorf("expected BoolValue, got %v", pair.Value.Type)
+	}
+}
+
 func TestParseText_NegativeNumbers(t *testing.T) {
 	tests := []struct {
 		name  string

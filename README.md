@@ -122,6 +122,27 @@ make serve
 
 Paste Lua data on the left, get JSON on the right.
 
+## Raw values
+
+In addition to variable assignments, luadata can parse files containing a single raw Lua value (e.g., just a table, string, number, boolean, or `nil`). When a raw value is detected, the result contains a single top-level key `@root` (which cannot collide with valid Lua identifiers).
+
+```go
+data, err := luadata.ParseText("input", `{["a"]=1,["b"]=2}`)
+// data has one entry with key "@root" containing the table
+
+data, err = luadata.ParseText("input", `"hello"`)
+// data.GetString("@root") == "hello"
+```
+
+CLI example:
+
+```bash
+echo '{"a","b","c"}' | bin/cli/luadata tojson -
+# {"@root":{"1":"a","2":"b","3":"c"}}
+```
+
+Raw value mode is exclusive — only one value per input is allowed, and trailing content after the value produces an error.
+
 ## Example
 
 Input (`saved.lua`):
