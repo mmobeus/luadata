@@ -159,6 +159,36 @@ Output:
 }
 ```
 
+## Development
+
+### Setup
+
+Install development tools (requires Go):
+
+```
+make setup
+```
+
+This installs:
+- [golangci-lint](https://golangci-lint.run/) v2.11.3 — linter aggregator
+- [gofumpt](https://github.com/mvdan/gofumpt) v0.9.0 — stricter gofmt
+
+### Running checks locally
+
+```
+make check
+```
+
+Runs build, tests, and lint — the same checks as the GitHub Actions workflow.
+
+| Command        | Description                       |
+|----------------|-----------------------------------|
+| `make test`    | Run tests                         |
+| `make lint`    | Run golangci-lint (includes fmt)  |
+| `make fmt`     | Format code with gofumpt          |
+| `make check`   | Run build + test + lint           |
+| `make setup`   | Install dev tools                 |
+
 ## Building
 
 | Command           | Description                            |
