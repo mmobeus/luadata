@@ -1,4 +1,7 @@
-.PHONY: build build-wasm serve clean
+GOLANGCI_LINT_VERSION := v2.11.3
+GOFUMPT_VERSION := v0.9.0
+
+.PHONY: build build-wasm serve clean test lint fmt fmt-check check setup
 
 build:
 	go build -o bin/cli/luadata ./cmd/luadata
@@ -14,3 +17,22 @@ serve: build-wasm
 
 clean:
 	rm -rf bin
+
+test:
+	go test ./...
+
+lint:
+	golangci-lint run ./...
+
+fmt:
+	gofumpt -w .
+
+fmt-check:
+	@test -z "$$(gofumpt -d .)" || (echo "files need formatting — run 'make fmt'" && gofumpt -d . && exit 1)
+
+check: build test lint
+	GOOS=js GOARCH=wasm go vet ./cmd/wasm
+
+setup:
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	go install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)
