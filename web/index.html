@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lua Data → JSON</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 960px; margin: 0 auto; }
+        h1 { margin-bottom: 1rem; }
+        .panels { display: flex; gap: 1rem; }
+        .panel { flex: 1; display: flex; flex-direction: column; }
+        label { font-weight: 600; margin-bottom: 0.25rem; }
+        textarea { width: 100%; height: 400px; font-family: monospace; font-size: 14px; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; resize: vertical; }
+        button { margin-top: 1rem; padding: 0.5rem 1.5rem; font-size: 1rem; cursor: pointer; align-self: flex-start; }
+        #error { color: red; margin-top: 0.5rem; }
+        #status { margin-bottom: 1rem; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Lua Data → JSON</h1>
+    <p id="status">Loading WASM…</p>
+
+    <div class="panels">
+        <div class="panel">
+            <label for="lua-input">Lua</label>
+            <textarea id="lua-input" placeholder="Paste Lua data table here…"></textarea>
+        </div>
+        <div class="panel">
+            <label for="json-output">JSON</label>
+            <textarea id="json-output" readonly placeholder="JSON output will appear here…"></textarea>
+        </div>
+    </div>
+
+    <button id="convert-btn" disabled>Convert</button>
+    <p id="error"></p>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("luadata.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+            document.getElementById("status").textContent = "Ready.";
+            document.getElementById("convert-btn").disabled = false;
+        }).catch((err) => {
+            document.getElementById("status").textContent = "Failed to load WASM: " + err;
+        });
+
+        document.getElementById("convert-btn").addEventListener("click", () => {
+            const input = document.getElementById("lua-input").value;
+            const errorEl = document.getElementById("error");
+            const outputEl = document.getElementById("json-output");
+            errorEl.textContent = "";
+            outputEl.value = "";
+
+            const res = convertLuaDataToJson(input);
+            if (res.error) {
+                errorEl.textContent = res.error;
+            } else {
+                try {
+                    outputEl.value = JSON.stringify(JSON.parse(res.result), null, 2);
+                } catch {
+                    outputEl.value = res.result;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
