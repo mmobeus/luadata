@@ -189,6 +189,27 @@ Runs build, tests, and lint — the same checks as the GitHub Actions workflow.
 | `make check`   | Run build + test + lint           |
 | `make setup`   | Install dev tools                 |
 
+### Releasing
+
+To push a new patch release (the most common case), run:
+
+```
+make release
+```
+
+This finds the latest semver tag, bumps the patch version (e.g. `v0.1.0` → `v0.1.1`), and asks for confirmation before creating the git tag, pushing it, and creating a GitHub release.
+
+For other version bumps, set `BUMP`:
+
+| Command                    | Description                          |
+|----------------------------|--------------------------------------|
+| `make release`             | Patch bump (default)                 |
+| `make release BUMP=minor`  | Minor bump, resets patch to 0        |
+| `make release BUMP=major`  | Major bump, resets minor and patch   |
+| `make release BUMP=manual` | Prompt for an exact version string   |
+
+Requires the [GitHub CLI](https://cli.github.com/) (`gh`) for creating GitHub releases.
+
 ## Building
 
 | Command           | Description                            |
