@@ -37,8 +37,8 @@ Output:
   "settings": {
     "showHelm": true,
     "ui": {
-      "panels": ["map", "inventory", "chat"],
-      "scale": 1.25
+      "scale": 1.25,
+      "panels": ["map", "inventory", "chat"]
     }
   }
 }
