@@ -149,6 +149,36 @@ func (kvps KeyValuePairs) MarshalJSON() ([]byte, error) {
 	return bb.Bytes(), nil
 }
 
+// orderedMap preserves Lua key insertion order when marshalling to JSON,
+// instead of the alphabetical ordering that Go's map[string]interface{} produces.
+type orderedMap struct {
+	pairs []KeyValuePair
+}
+
+func (om orderedMap) MarshalJSON() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	buf.WriteByte('{')
+	for i, kv := range om.pairs {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		keyBytes, err := json.Marshal(kv.Key.Source)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(keyBytes)
+		buf.WriteByte(':')
+		valBytes, err := kv.Value.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		// Value.MarshalJSON uses json.NewEncoder which appends a trailing newline
+		buf.Write(bytes.TrimRight(valBytes, "\n"))
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
 func convertTable(table []KeyValuePair) interface{} {
 	// If all keys are implicit Index keys (from {"a","b","c"} syntax), render as a JSON array.
 	// Index keys are always contiguous and 1-based by construction. Explicit integer keys
@@ -173,16 +203,27 @@ func convertTable(table []KeyValuePair) interface{} {
 		return arr
 	}
 
-	tableMap := make(map[string]interface{})
+	// Check for key collisions; if found, prepend a warning pair.
+	seen := make(map[string]bool, len(table))
+	hasCollision := false
 	for _, kv := range table {
-		if _, ok := tableMap[kv.Key.Source]; ok {
-			tableMap["_wtf_warning"] = "key_collision"
+		if seen[kv.Key.Source] {
+			hasCollision = true
+			break
 		}
-
-		tableMap[kv.Key.Source] = kv.Value
+		seen[kv.Key.Source] = true
 	}
 
-	return tableMap
+	pairs := table
+	if hasCollision {
+		warning := KeyValuePair{
+			Key:   Key{Type: String, Source: "_wtf_warning", Raw: "_wtf_warning"},
+			Value: Value{Type: StringValue, Source: "key_collision", Raw: "key_collision"},
+		}
+		pairs = append([]KeyValuePair{warning}, table...)
+	}
+
+	return orderedMap{pairs: pairs}
 }
 
 func (kvp KeyValuePairs) Pairs() []KeyValuePair {
