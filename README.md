@@ -175,6 +175,27 @@ jsonReader, err := luadata.ToJSON(input,
 
 Gaps are measured from index 0, so Lua's 1-based arrays (starting at `[1]`) have a gap of 0 from the start. A table starting at `[2]` has a leading gap of 1.
 
+### Empty tables
+
+Lua has no distinction between an empty array and an empty object — both are simply `{}`. This creates an ambiguity when converting to JSON, where `[]` and `{}` have different meanings. By default, empty tables render as `null`, which avoids making an arbitrary choice between the two JSON types while still making the key visible in the output (unlike omitting it, which could look like a bug).
+
+`WithEmptyTableMode` controls how empty tables are rendered:
+
+```go
+data, err := luadata.ParseText("input", luaString,
+    luadata.WithEmptyTableMode(luadata.EmptyTableArray),
+)
+```
+
+| Mode | `foo={}` |
+|---|---|
+| `EmptyTableNull` (default) | `{"foo":null}` |
+| `EmptyTableOmit` | `{}` (key omitted) |
+| `EmptyTableArray` | `{"foo":[]}` |
+| `EmptyTableObject` | `{"foo":{}}` |
+
+Both `{}` and whitespace-only tables (like `{\n}`) are treated the same way under all modes. The mode applies everywhere empty tables appear — top-level values, nested table values, and elements inside arrays.
+
 ## CLI
 
 ```bash
