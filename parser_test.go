@@ -571,9 +571,9 @@ func TestConvertTable_ImplicitArrayRendersAsJSONArray(t *testing.T) {
 			expected: `{"data":{"list":["a","b","c"]}}`,
 		},
 		{
-			name:     "explicit integer keys render as map",
+			name:     "explicit integer keys render as sparse array by default",
 			input:    `data={[1]="a",[3]="c"}`,
-			expected: `{"data":{"1":"a","3":"c"}}`,
+			expected: `{"data":["a",null,"c"]}`,
 		},
 		{
 			name: "mixed keys render as map",
@@ -616,6 +616,134 @@ func TestConvertTable_ImplicitArrayRendersAsJSONArray(t *testing.T) {
 			// but MarshalJSON uses NewEncoder internally, so trim.
 			gotStr := string(got)
 			// Remove trailing newline if present
+			if len(gotStr) > 0 && gotStr[len(gotStr)-1] == '\n' {
+				gotStr = gotStr[:len(gotStr)-1]
+			}
+
+			if gotStr != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, gotStr)
+			}
+		})
+	}
+}
+
+func TestWithArrayDetection(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		mode     ArrayMode // nil means no option (default)
+		expected string
+	}{
+		{
+			name:     "contiguous int keys as array",
+			input:    `data={[1]="a",[2]="b",[3]="c"}`,
+			mode:     ArrayModeSparse{MaxGap: 0},
+			expected: `{"data":["a","b","c"]}`,
+		},
+		{
+			name:     "sparse within gap",
+			input:    `data={[1]="a",[3]="c"}`,
+			mode:     ArrayModeSparse{MaxGap: 1},
+			expected: `{"data":["a",null,"c"]}`,
+		},
+		{
+			name:     "sparse exceeds gap",
+			input:    `data={[1]="a",[5]="e"}`,
+			mode:     ArrayModeSparse{MaxGap: 1},
+			expected: `{"data":{"1":"a","5":"e"}}`,
+		},
+		{
+			name:     "mixed int and string keys stays object",
+			input:    `data={[1]="a",["name"]="b"}`,
+			mode:     ArrayModeSparse{MaxGap: 10},
+			expected: `{"data":{"1":"a","name":"b"}}`,
+		},
+		{
+			name:     "nested tables propagate option",
+			input:    `data={["items"]={[1]="x",[2]="y"}}`,
+			mode:     ArrayModeSparse{MaxGap: 0},
+			expected: `{"data":{"items":["x","y"]}}`,
+		},
+		{
+			name:     "default renders contiguous int keys as array",
+			input:    `data={[1]="a",[2]="b"}`,
+			mode:     nil,
+			expected: `{"data":["a","b"]}`,
+		},
+		{
+			name:     "index only mode renders int keys as object",
+			input:    `data={[1]="a",[2]="b"}`,
+			mode:     ArrayModeIndexOnly{},
+			expected: `{"data":{"1":"a","2":"b"}}`,
+		},
+		{
+			name:     "index only mode renders implicit index as array",
+			input:    `data={"a","b","c"}`,
+			mode:     ArrayModeIndexOnly{},
+			expected: `{"data":["a","b","c"]}`,
+		},
+		{
+			name:     "none mode renders everything as object",
+			input:    `data={"a","b","c"}`,
+			mode:     ArrayModeNone{},
+			expected: `{"data":{"1":"a","2":"b","3":"c"}}`,
+		},
+		{
+			name:     "none mode renders int keys as object",
+			input:    `data={[1]="a",[2]="b"}`,
+			mode:     ArrayModeNone{},
+			expected: `{"data":{"1":"a","2":"b"}}`,
+		},
+		{
+			name:     "implicit index unaffected by sparse option",
+			input:    `data={"a","b","c"}`,
+			mode:     ArrayModeSparse{MaxGap: 0},
+			expected: `{"data":["a","b","c"]}`,
+		},
+		{
+			name:     "keys not starting at 1 with gap 0",
+			input:    `data={[2]="a",[3]="b"}`,
+			mode:     ArrayModeSparse{MaxGap: 0},
+			expected: `{"data":{"2":"a","3":"b"}}`,
+		},
+		{
+			name:     "keys not starting at 1 gap ok",
+			input:    `data={[2]="a",[3]="b"}`,
+			mode:     ArrayModeSparse{MaxGap: 1},
+			expected: `{"data":[null,"a","b"]}`,
+		},
+		{
+			name:     "single element array",
+			input:    `data={[1]="only"}`,
+			mode:     ArrayModeSparse{MaxGap: 0},
+			expected: `{"data":["only"]}`,
+		},
+		{
+			name:     "int keys with nested table values",
+			input:    `data={[1]={["name"]="a"},[2]={["name"]="b"}}`,
+			mode:     ArrayModeSparse{MaxGap: 0},
+			expected: `{"data":[{"name":"a"},{"name":"b"}]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var opts []Option
+			if tt.mode != nil {
+				opts = append(opts, WithArrayDetection(tt.mode))
+			}
+
+			result, err := ParseText("input", tt.input, opts...)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			got, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("unexpected marshal error: %v", err)
+			}
+
+			gotStr := string(got)
 			if len(gotStr) > 0 && gotStr[len(gotStr)-1] == '\n' {
 				gotStr = gotStr[:len(gotStr)-1]
 			}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -17,6 +18,7 @@ const eof = -1
 type KeyValuePairs struct {
 	orderedPairs []KeyValuePair
 	NumValues    int
+	config       *parseConfig
 }
 
 func (kvps KeyValuePairs) Len() int {
@@ -141,7 +143,7 @@ func (kvps KeyValuePairs) MarshalJSON() ([]byte, error) {
 	encoder := json.NewEncoder(bb)
 	encoder.SetEscapeHTML(false)
 
-	err := encoder.Encode(convertTable(kvps.orderedPairs))
+	err := encoder.Encode(convertTable(kvps.orderedPairs, kvps.config))
 	if err != nil {
 		return nil, err
 	}
@@ -179,28 +181,38 @@ func (om orderedMap) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func convertTable(table []KeyValuePair) interface{} {
-	// If all keys are implicit Index keys (from {"a","b","c"} syntax), render as a JSON array.
-	// Index keys are always contiguous and 1-based by construction. Explicit integer keys
-	// like [1]="a" use Int type and still render as maps, avoiding non-determinism with
-	// sparse arrays.
-	// NOTE: this may need to have an explicit config/mode for the parser. If an addon has an
-	// array, it may render as a concise array, until some later time where it may become sparse
-	// (eg an entry is removed). Which is back to the non-determinism (in the final JSON shape
-	// across parses across time for the same file/data).
-	allIndex := len(table) > 0
-	for _, kv := range table {
-		if kv.Key.Type != Index {
-			allIndex = false
-			break
+func convertTable(table []KeyValuePair, config *parseConfig) interface{} {
+	mode := config.effectiveArrayMode()
+
+	switch mode.(type) {
+	case ArrayModeNone:
+		// No array rendering at all; fall through to object.
+
+	case ArrayModeIndexOnly, ArrayModeSparse:
+		// If all keys are implicit Index keys (from {"a","b","c"} syntax), render as a JSON array.
+		// Index keys are always contiguous and 1-based by construction.
+		allIndex := len(table) > 0
+		for _, kv := range table {
+			if kv.Key.Type != Index {
+				allIndex = false
+				break
+			}
 		}
-	}
-	if allIndex {
-		arr := make([]interface{}, len(table))
-		for i, kv := range table {
-			arr[i] = kv.Value
+		if allIndex {
+			arr := make([]interface{}, len(table))
+			for i, kv := range table {
+				arr[i] = kv.Value
+			}
+			return arr
 		}
-		return arr
+
+		// For sparse mode, also check whether all keys are Int type and
+		// within the configured sparseness threshold.
+		if sm, ok := mode.(ArrayModeSparse); ok {
+			if arr, ok := tryIntKeyArray(table, sm.MaxGap); ok {
+				return arr
+			}
+		}
 	}
 
 	// Check for key collisions; if found, prepend a warning pair.
@@ -224,6 +236,64 @@ func convertTable(table []KeyValuePair) interface{} {
 	}
 
 	return orderedMap{pairs: pairs}
+}
+
+// tryIntKeyArray attempts to render a table as a JSON array when all keys are
+// Int type and the gaps between consecutive keys (including from 0 to the first
+// key) do not exceed maxGap. Returns the array and true on success.
+func tryIntKeyArray(table []KeyValuePair, maxGap int) ([]interface{}, bool) {
+	if len(table) == 0 {
+		return nil, false
+	}
+
+	type entry struct {
+		key   int
+		value Value
+	}
+
+	entries := make([]entry, 0, len(table))
+	seen := make(map[int]bool, len(table))
+
+	for _, kv := range table {
+		if kv.Key.Type != Int {
+			return nil, false
+		}
+
+		k, ok := kv.Key.Raw.(int64)
+		if !ok || k < 1 {
+			return nil, false
+		}
+
+		ki := int(k)
+		if seen[ki] {
+			return nil, false // duplicate key
+		}
+		seen[ki] = true
+
+		entries = append(entries, entry{key: ki, value: kv.Value})
+	}
+
+	slices.SortFunc(entries, func(a, b entry) int { return a.key - b.key })
+
+	// Check gaps: from 0 to first key, then between consecutive keys.
+	prev := 0
+	for _, e := range entries {
+		gap := e.key - prev - 1
+		if gap > maxGap {
+			return nil, false
+		}
+		prev = e.key
+	}
+
+	// Build array: 1-based Lua keys map to 0-based Go indices.
+	// Missing positions are nil, which marshals to JSON null.
+	maxKey := entries[len(entries)-1].key
+	arr := make([]interface{}, maxKey)
+	for _, e := range entries {
+		arr[e.key-1] = e.value
+	}
+
+	return arr, true
 }
 
 func (kvp KeyValuePairs) Pairs() []KeyValuePair {
@@ -355,6 +425,7 @@ func ParseText(name, text string, opts ...Option) (KeyValuePairs, error) {
 
 	kvPairs := KeyValuePairs{
 		orderedPairs: make([]KeyValuePair, 0),
+		config:       config,
 	}
 
 	firstIteration := true
@@ -826,6 +897,7 @@ func readLuaTable(lex *lexer) (Value, error) {
 
 	tableValue := KeyValuePairs{
 		orderedPairs: make([]KeyValuePair, 0),
+		config:       lex.config,
 	}
 
 	for {
