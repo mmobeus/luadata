@@ -44,9 +44,20 @@ func (ArrayModeNone) arrayMode()      {}
 func (ArrayModeIndexOnly) arrayMode() {}
 func (ArrayModeSparse) arrayMode()    {}
 
+// EmptyTableMode controls how empty Lua tables ({}) are rendered in JSON.
+type EmptyTableMode int
+
+const (
+	EmptyTableNull   EmptyTableMode = iota // render as null (default)
+	EmptyTableOmit                         // omit the key entirely
+	EmptyTableArray                        // render as []
+	EmptyTableObject                       // render as {}
+)
+
 type parseConfig struct {
 	stringTransform *StringTransform // nil = no transform (default)
 	arrayMode       ArrayMode        // nil = default (ArrayModeSparse{MaxGap: 20})
+	emptyTableMode  EmptyTableMode   // zero value = EmptyTableNull (default)
 }
 
 func (c *parseConfig) effectiveArrayMode() ArrayMode {
@@ -54,6 +65,13 @@ func (c *parseConfig) effectiveArrayMode() ArrayMode {
 		return ArrayModeSparse{MaxGap: 20}
 	}
 	return c.arrayMode
+}
+
+func (c *parseConfig) effectiveEmptyTableMode() EmptyTableMode {
+	if c == nil {
+		return EmptyTableNull
+	}
+	return c.emptyTableMode
 }
 
 // Option configures parsing behavior.
@@ -74,6 +92,14 @@ func WithStringTransform(st StringTransform) Option {
 func WithArrayDetection(mode ArrayMode) Option {
 	return func(c *parseConfig) {
 		c.arrayMode = mode
+	}
+}
+
+// WithEmptyTableMode sets how empty Lua tables ({}) are rendered in JSON output.
+// The default (when this option is not used) is EmptyTableNull.
+func WithEmptyTableMode(mode EmptyTableMode) Option {
+	return func(c *parseConfig) {
+		c.emptyTableMode = mode
 	}
 }
 
