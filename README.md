@@ -25,7 +25,7 @@ settings = {
 }
 `)
 
-jsonBytes, err := luadata.ToJSON(input)
+jsonReader, err := luadata.ToJSON(input)
 ```
 
 Output:
