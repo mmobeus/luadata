@@ -153,6 +153,10 @@ func convertTable(table []KeyValuePair) interface{} {
 	// Index keys are always contiguous and 1-based by construction. Explicit integer keys
 	// like [1]="a" use Int type and still render as maps, avoiding non-determinism with
 	// sparse arrays.
+	// NOTE: this may need to have an explicit config/mode for the parser. If an addon has an
+	// array, it may render as a concise array, until some later time where it may become sparse
+	// (eg an entry is removed). Which is back to the non-determinism (in the final JSON shape
+	// across parses across time for the same file/data).
 	allIndex := len(table) > 0
 	for _, kv := range table {
 		if kv.Key.Type != Index {
