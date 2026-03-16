@@ -306,9 +306,10 @@ type keyJSON struct {
 }
 
 type Value struct {
-	Type   ValueType
-	Source string
-	Raw    any
+	Type        ValueType
+	Source      string
+	Raw         any
+	Transformed bool
 }
 
 func (v Value) MarshalJSON() ([]byte, error) {
@@ -317,12 +318,7 @@ func (v Value) MarshalJSON() ([]byte, error) {
 	encoder := json.NewEncoder(bb)
 	encoder.SetEscapeHTML(false)
 
-	raw := v.Raw
-	if v.Type == StringValue && len(v.Source) > 2048 {
-		raw = "[removed]"
-	}
-
-	err := encoder.Encode(raw)
+	err := encoder.Encode(v.Raw)
 	if err != nil {
 		return nil, err
 	}
@@ -331,27 +327,31 @@ func (v Value) MarshalJSON() ([]byte, error) {
 }
 
 // ParseReader parses Lua data from an io.Reader.
-func ParseReader(name string, r io.Reader) (KeyValuePairs, error) {
+func ParseReader(name string, r io.Reader, opts ...Option) (KeyValuePairs, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return KeyValuePairs{}, fmt.Errorf("parse failure in %s: %w", name, err)
 	}
 
-	return ParseText(name, string(data))
+	return ParseText(name, string(data), opts...)
 }
 
-func ParseFile(filePath string) (KeyValuePairs, error) {
+func ParseFile(filePath string, opts ...Option) (KeyValuePairs, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return KeyValuePairs{}, fmt.Errorf("parse failure in %s: %w", filePath, err)
 	}
 	defer func() { _ = file.Close() }()
 
-	return ParseReader(filePath, file)
+	return ParseReader(filePath, file, opts...)
 }
 
-func ParseText(name, text string) (KeyValuePairs, error) {
-	lex := newLexer(name, text)
+func ParseText(name, text string, opts ...Option) (KeyValuePairs, error) {
+	config := &parseConfig{}
+	for _, opt := range opts {
+		opt(config)
+	}
+	lex := newLexer(name, text, config)
 
 	kvPairs := KeyValuePairs{
 		orderedPairs: make([]KeyValuePair, 0),
@@ -486,11 +486,13 @@ type lexer struct {
 	width     int // width of last rune read by nextRune; 0 after eof or backup
 	line      int
 	numValues int
+	config    *parseConfig
 }
 
-func newLexer(name, input string) *lexer {
+func newLexer(name, input string, config *parseConfig) *lexer {
 	l := &lexer{
-		input: input,
+		input:  input,
+		config: config,
 	}
 	return l
 }
@@ -983,11 +985,14 @@ func readQuotedStringValue(lex *lexer) (Value, error) {
 		case '"':
 			quotedVal := lex.take()
 			sourceVal := quotedVal[1 : len(quotedVal)-1]
+			transformed := lex.config.transformString(sourceVal)
+			wasTransformed := transformed != sourceVal
 
 			return Value{
-				Type:   StringValue,
-				Source: sourceVal,
-				Raw:    sourceVal,
+				Type:        StringValue,
+				Source:      transformed,
+				Raw:         transformed,
+				Transformed: wasTransformed,
 			}, nil
 		}
 	}
