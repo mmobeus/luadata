@@ -456,6 +456,21 @@ func TestConvertTable_ImplicitArrayRendersAsJSONArray(t *testing.T) {
 }`,
 			expected: `{"data":{"1":"foo","name":"bar"}}`,
 		},
+		{
+			name:     "preserves insertion order",
+			input:    `data={["z"]=1,["a"]=2,["m"]=3}`,
+			expected: `{"data":{"z":1,"a":2,"m":3}}`,
+		},
+		{
+			name:     "top-level key order preserved",
+			input:    "z=1\na=2\nm=3",
+			expected: `{"z":1,"a":2,"m":3}`,
+		},
+		{
+			name:     "nested table order preserved",
+			input:    `outer={["inner"]={["z"]=1,["a"]=2}}`,
+			expected: `{"outer":{"inner":{"z":1,"a":2}}}`,
+		},
 	}
 
 	for _, tt := range tests {
