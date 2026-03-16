@@ -9,13 +9,13 @@ import (
 )
 
 // ToJSON parses Lua data bytes and returns the equivalent JSON as an io.Reader.
-func ToJSON(lua []byte) (io.Reader, error) {
-	return TextToJSON("input", string(lua))
+func ToJSON(lua []byte, opts ...Option) (io.Reader, error) {
+	return TextToJSON("input", string(lua), opts...)
 }
 
 // TextToJSON parses a Lua data string and returns the equivalent JSON as an io.Reader.
-func TextToJSON(name, text string) (io.Reader, error) {
-	parsed, err := ParseText(name, text)
+func TextToJSON(name, text string, opts ...Option) (io.Reader, error) {
+	parsed, err := ParseText(name, text, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -27,8 +27,8 @@ func TextToJSON(name, text string) (io.Reader, error) {
 }
 
 // ReaderToJSON parses Lua data from an io.Reader and returns the equivalent JSON as an io.Reader.
-func ReaderToJSON(name string, r io.Reader) (io.Reader, error) {
-	parsed, err := ParseReader(name, r)
+func ReaderToJSON(name string, r io.Reader, opts ...Option) (io.Reader, error) {
+	parsed, err := ParseReader(name, r, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +40,12 @@ func ReaderToJSON(name string, r io.Reader) (io.Reader, error) {
 }
 
 // FileToJSON parses a Lua data file and returns the equivalent JSON as an io.Reader.
-func FileToJSON(filePath string) (io.Reader, error) {
+func FileToJSON(filePath string, opts ...Option) (io.Reader, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = file.Close() }()
 
-	return ReaderToJSON(filePath, file)
+	return ReaderToJSON(filePath, file, opts...)
 }

@@ -2,6 +2,8 @@ package luadata
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -423,6 +425,131 @@ func TestParseText_NegativeNumbers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseText_StringTransform(t *testing.T) {
+	longStr := strings.Repeat("x", 100)
+	shortStr := "short"
+	input := fmt.Sprintf(`long="%s"`, longStr)
+	shortInput := fmt.Sprintf(`short="%s"`, shortStr)
+
+	t.Run("default no transform", func(t *testing.T) {
+		result, err := ParseText("input", input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		pair := result.orderedPairs[0]
+		if pair.Value.Source != longStr {
+			t.Errorf("expected Source to be unmodified, got %q", pair.Value.Source)
+		}
+		if pair.Value.Raw != longStr {
+			t.Errorf("expected Raw to be unmodified, got %q", pair.Value.Raw)
+		}
+		if pair.Value.Transformed {
+			t.Error("expected Transformed to be false")
+		}
+	})
+
+	t.Run("truncate", func(t *testing.T) {
+		result, err := ParseText("input", input, WithStringTransform(StringTransform{
+			MaxLen: 10,
+			Mode:   StringTransformTruncate,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		pair := result.orderedPairs[0]
+		if pair.Value.Source != "xxxxxxxxxx" {
+			t.Errorf("expected truncated Source, got %q", pair.Value.Source)
+		}
+		if pair.Value.Raw != "xxxxxxxxxx" {
+			t.Errorf("expected truncated Raw, got %q", pair.Value.Raw)
+		}
+		if !pair.Value.Transformed {
+			t.Error("expected Transformed to be true")
+		}
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		result, err := ParseText("input", input, WithStringTransform(StringTransform{
+			MaxLen: 10,
+			Mode:   StringTransformEmpty,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		pair := result.orderedPairs[0]
+		if pair.Value.Source != "" {
+			t.Errorf("expected empty Source, got %q", pair.Value.Source)
+		}
+		if pair.Value.Raw != "" {
+			t.Errorf("expected empty Raw, got %q", pair.Value.Raw)
+		}
+		if !pair.Value.Transformed {
+			t.Error("expected Transformed to be true")
+		}
+	})
+
+	t.Run("redact", func(t *testing.T) {
+		result, err := ParseText("input", input, WithStringTransform(StringTransform{
+			MaxLen: 10,
+			Mode:   StringTransformRedact,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		pair := result.orderedPairs[0]
+		if pair.Value.Source != "[redacted]" {
+			t.Errorf("expected [redacted] Source, got %q", pair.Value.Source)
+		}
+		if pair.Value.Raw != "[redacted]" {
+			t.Errorf("expected [redacted] Raw, got %q", pair.Value.Raw)
+		}
+		if !pair.Value.Transformed {
+			t.Error("expected Transformed to be true")
+		}
+	})
+
+	t.Run("replace", func(t *testing.T) {
+		result, err := ParseText("input", input, WithStringTransform(StringTransform{
+			MaxLen:      10,
+			Mode:        StringTransformReplace,
+			Replacement: "[too long]",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		pair := result.orderedPairs[0]
+		if pair.Value.Source != "[too long]" {
+			t.Errorf("expected [too long] Source, got %q", pair.Value.Source)
+		}
+		if pair.Value.Raw != "[too long]" {
+			t.Errorf("expected [too long] Raw, got %q", pair.Value.Raw)
+		}
+		if !pair.Value.Transformed {
+			t.Error("expected Transformed to be true")
+		}
+	})
+
+	t.Run("under limit unchanged", func(t *testing.T) {
+		result, err := ParseText("input", shortInput, WithStringTransform(StringTransform{
+			MaxLen: 10,
+			Mode:   StringTransformRedact,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		pair := result.orderedPairs[0]
+		if pair.Value.Source != shortStr {
+			t.Errorf("expected Source %q, got %q", shortStr, pair.Value.Source)
+		}
+		if pair.Value.Raw != shortStr {
+			t.Errorf("expected Raw %q, got %q", shortStr, pair.Value.Raw)
+		}
+		if pair.Value.Transformed {
+			t.Error("expected Transformed to be false")
+		}
+	})
 }
 
 func TestConvertTable_ImplicitArrayRendersAsJSONArray(t *testing.T) {
