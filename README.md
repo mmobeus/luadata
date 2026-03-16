@@ -90,6 +90,47 @@ echo '{"a","b","c"}' | bin/cli/luadata tojson -
 # {"@root":["a","b","c"]}
 ```
 
+## Options
+
+All parse and convert functions accept functional options.
+
+### String transform
+
+Use `WithStringTransform` to limit string length during parsing. This is indended for use cases where the source data has some values that are larger than the caller expects to manage, and do NOT want the large values to (for example) be rendered in the JSON output.
+
+When a string exceeds `MaxLen`, the transform is applied to both `Source` and `Raw` — the parser treats the result as if the transformed value was the original. The `Transformed` flag on `Value` is set to `true` so callers can detect this if needed.
+
+```go
+data, err := luadata.ParseText("input", luaString,
+    luadata.WithStringTransform(luadata.StringTransform{
+        MaxLen: 1024,
+        Mode:   luadata.StringTransformTruncate,
+    }),
+)
+```
+
+Available modes:
+
+| Mode                       | Behavior                              |
+|----------------------------|---------------------------------------|
+| `StringTransformTruncate`  | Truncate to `MaxLen` bytes            |
+| `StringTransformEmpty`     | Replace with `""`                     |
+| `StringTransformRedact`    | Replace with `"[redacted]"`           |
+| `StringTransformReplace`   | Replace with custom `Replacement` string |
+
+Strings at or under `MaxLen` are not modified.
+
+```go
+// Replace long strings with a custom message
+jsonReader, err := luadata.ToJSON(input,
+    luadata.WithStringTransform(luadata.StringTransform{
+        MaxLen:      2048,
+        Mode:        luadata.StringTransformReplace,
+        Replacement: "[removed]",
+    }),
+)
+```
+
 ## CLI
 
 ```bash
@@ -104,20 +145,20 @@ cat config.lua | bin/cli/luadata tojson -
 
 Parse into `KeyValuePairs`:
 
-| Function                     | Description                        |
-|------------------------------|------------------------------------|
-| `ParseFile(path)`            | Parse a `.lua` file from disk      |
-| `ParseText(name, text)`      | Parse Lua data from a string       |
-| `ParseReader(name, reader)`  | Parse Lua data from an `io.Reader` |
+| Function                              | Description                        |
+|---------------------------------------|------------------------------------|
+| `ParseFile(path, ...Option)`          | Parse a `.lua` file from disk      |
+| `ParseText(name, text, ...Option)`    | Parse Lua data from a string       |
+| `ParseReader(name, reader, ...Option)`| Parse Lua data from an `io.Reader` |
 
 Convert to JSON (`io.Reader`):
 
-| Function                     | Description                     |
-|------------------------------|---------------------------------|
-| `FileToJSON(path)`           | File to JSON                    |
-| `TextToJSON(name, text)`     | String to JSON                  |
-| `ReaderToJSON(name, reader)` | `io.Reader` to JSON             |
-| `ToJSON(luaBytes)`           | `[]byte` to JSON                |
+| Function                              | Description                     |
+|---------------------------------------|---------------------------------|
+| `FileToJSON(path, ...Option)`         | File to JSON                    |
+| `TextToJSON(name, text, ...Option)`   | String to JSON                  |
+| `ReaderToJSON(name, reader, ...Option)`| `io.Reader` to JSON            |
+| `ToJSON(luaBytes, ...Option)`         | `[]byte` to JSON                |
 
 Accessors on `KeyValuePairs`:
 
