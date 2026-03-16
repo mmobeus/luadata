@@ -131,6 +131,50 @@ jsonReader, err := luadata.ToJSON(input,
 )
 ```
 
+### Array detection
+
+Lua tables with integer keys are conceptually arrays, but Lua has no distinct array type — arrays are just tables with sequential integer keys. This creates an ambiguity when converting to JSON, where arrays and objects are distinct types.
+
+In Lua (and WoW SavedVariables in particular), array data can appear in two forms:
+
+- **Implicit index syntax**: `{"apple", "banana", "cherry"}` — elements have no explicit keys
+- **Explicit integer key syntax**: `{[1] = "apple", [2] = "banana", [3] = "cherry"}` — each element has a `[n] =` prefix
+
+WoW addons may switch between these forms over time. An array initially saved with implicit syntax may later be re-saved with explicit `[n]=` keys after entries are added or removed. Sparse arrays (with gaps) like `{[1] = "apple", [3] = "cherry"}` are also common when elements are deleted.
+
+By default, both implicit index tables and tables with explicit integer keys render as JSON arrays, as long as the gap between consecutive keys does not exceed 20 (`ArrayModeSparse{MaxGap: 20}`). Missing indices are filled with `null`. This produces the most natural JSON for array-like data.
+
+`WithArrayDetection` controls this behavior using one of three modes:
+
+```go
+// ArrayModeSparse (default): treat Int-key tables as arrays within a gap threshold.
+// The default is ArrayModeSparse{MaxGap: 20} when no option is specified.
+data, err := luadata.ParseText("input", luaString,
+    luadata.WithArrayDetection(luadata.ArrayModeSparse{MaxGap: 0}), // contiguous only
+)
+
+// ArrayModeIndexOnly: only implicit index tables ({"a","b"}) render as arrays.
+// Explicit integer keys always produce objects.
+data, err := luadata.ParseText("input", luaString,
+    luadata.WithArrayDetection(luadata.ArrayModeIndexOnly{}),
+)
+
+// ArrayModeNone: no array rendering at all. Every table becomes a JSON object,
+// including implicit index tables.
+jsonReader, err := luadata.ToJSON(input,
+    luadata.WithArrayDetection(luadata.ArrayModeNone{}),
+)
+```
+
+| Mode | `{[1]="a",[2]="b"}` | `{[1]="a",[3]="c"}` | `{"a","b"}` |
+|---|---|---|---|
+| `ArrayModeSparse{MaxGap: 20}` (default) | `["a","b"]` | `["a",null,"c"]` | `["a","b"]` |
+| `ArrayModeSparse{MaxGap: 0}` | `["a","b"]` | `{"1":"a","3":"c"}` | `["a","b"]` |
+| `ArrayModeIndexOnly{}` | `{"1":"a","2":"b"}` | `{"1":"a","3":"c"}` | `["a","b"]` |
+| `ArrayModeNone{}` | `{"1":"a","2":"b"}` | `{"1":"a","3":"c"}` | `{"1":"a","2":"b"}` |
+
+Gaps are measured from index 0, so Lua's 1-based arrays (starting at `[1]`) have a gap of 0 from the start. A table starting at `[2]` has a leading gap of 1.
+
 ## CLI
 
 ```bash
