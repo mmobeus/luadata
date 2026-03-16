@@ -154,34 +154,87 @@ func (kvps KeyValuePairs) MarshalJSON() ([]byte, error) {
 // orderedMap preserves Lua key insertion order when marshalling to JSON,
 // instead of the alphabetical ordering that Go's map[string]interface{} produces.
 type orderedMap struct {
-	pairs []KeyValuePair
+	pairs  []KeyValuePair
+	config *parseConfig
+}
+
+// isEmptyTable reports whether a Value represents an empty Lua table.
+func isEmptyTable(v Value) bool {
+	if v.Type == EmptyValue {
+		return true
+	}
+	if v.Type == TableValue {
+		if kvps, ok := v.Raw.(KeyValuePairs); ok && kvps.Len() == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// marshalEmptyValue returns the JSON encoding for an empty table under the given mode.
+func marshalEmptyValue(mode EmptyTableMode) []byte {
+	switch mode {
+	case EmptyTableArray:
+		return []byte("[]")
+	case EmptyTableObject:
+		return []byte("{}")
+	default:
+		return []byte("null")
+	}
 }
 
 func (om orderedMap) MarshalJSON() ([]byte, error) {
+	emptyMode := om.config.effectiveEmptyTableMode()
 	buf := &bytes.Buffer{}
 	buf.WriteByte('{')
-	for i, kv := range om.pairs {
-		if i > 0 {
+	first := true
+	for _, kv := range om.pairs {
+		if isEmptyTable(kv.Value) && emptyMode == EmptyTableOmit && kv.Key.Source != "@root" {
+			continue
+		}
+		if !first {
 			buf.WriteByte(',')
 		}
+		first = false
 		keyBytes, err := json.Marshal(kv.Key.Source)
 		if err != nil {
 			return nil, err
 		}
 		buf.Write(keyBytes)
 		buf.WriteByte(':')
-		valBytes, err := kv.Value.MarshalJSON()
-		if err != nil {
-			return nil, err
+		var valBytes []byte
+		if isEmptyTable(kv.Value) {
+			valBytes = marshalEmptyValue(emptyMode)
+		} else {
+			var err error
+			valBytes, err = kv.Value.MarshalJSON()
+			if err != nil {
+				return nil, err
+			}
+			// Value.MarshalJSON uses json.NewEncoder which appends a trailing newline
+			valBytes = bytes.TrimRight(valBytes, "\n")
 		}
-		// Value.MarshalJSON uses json.NewEncoder which appends a trailing newline
-		buf.Write(bytes.TrimRight(valBytes, "\n"))
+		buf.Write(valBytes)
 	}
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
 }
 
 func convertTable(table []KeyValuePair, config *parseConfig) interface{} {
+	emptyMode := config.effectiveEmptyTableMode()
+
+	// Empty table: render according to empty table mode.
+	if len(table) == 0 {
+		switch emptyMode {
+		case EmptyTableArray:
+			return []interface{}{}
+		case EmptyTableObject:
+			return orderedMap{config: config}
+		default: // EmptyTableNull, EmptyTableOmit
+			return nil
+		}
+	}
+
 	mode := config.effectiveArrayMode()
 
 	switch mode.(type) {
@@ -199,9 +252,16 @@ func convertTable(table []KeyValuePair, config *parseConfig) interface{} {
 			}
 		}
 		if allIndex {
-			arr := make([]interface{}, len(table))
-			for i, kv := range table {
-				arr[i] = kv.Value
+			arr := make([]interface{}, 0, len(table))
+			for _, kv := range table {
+				if isEmptyTable(kv.Value) && emptyMode == EmptyTableOmit {
+					continue
+				}
+				if isEmptyTable(kv.Value) {
+					arr = append(arr, json.RawMessage(marshalEmptyValue(emptyMode)))
+				} else {
+					arr = append(arr, kv.Value)
+				}
 			}
 			return arr
 		}
@@ -209,7 +269,7 @@ func convertTable(table []KeyValuePair, config *parseConfig) interface{} {
 		// For sparse mode, also check whether all keys are Int type and
 		// within the configured sparseness threshold.
 		if sm, ok := mode.(ArrayModeSparse); ok {
-			if arr, ok := tryIntKeyArray(table, sm.MaxGap); ok {
+			if arr, ok := tryIntKeyArray(table, sm.MaxGap, config); ok {
 				return arr
 			}
 		}
@@ -235,13 +295,13 @@ func convertTable(table []KeyValuePair, config *parseConfig) interface{} {
 		pairs = append([]KeyValuePair{warning}, table...)
 	}
 
-	return orderedMap{pairs: pairs}
+	return orderedMap{pairs: pairs, config: config}
 }
 
 // tryIntKeyArray attempts to render a table as a JSON array when all keys are
 // Int type and the gaps between consecutive keys (including from 0 to the first
 // key) do not exceed maxGap. Returns the array and true on success.
-func tryIntKeyArray(table []KeyValuePair, maxGap int) ([]interface{}, bool) {
+func tryIntKeyArray(table []KeyValuePair, maxGap int, config *parseConfig) ([]interface{}, bool) {
 	if len(table) == 0 {
 		return nil, false
 	}
@@ -287,10 +347,18 @@ func tryIntKeyArray(table []KeyValuePair, maxGap int) ([]interface{}, bool) {
 
 	// Build array: 1-based Lua keys map to 0-based Go indices.
 	// Missing positions are nil, which marshals to JSON null.
+	emptyMode := config.effectiveEmptyTableMode()
 	maxKey := entries[len(entries)-1].key
 	arr := make([]interface{}, maxKey)
 	for _, e := range entries {
-		arr[e.key-1] = e.value
+		if isEmptyTable(e.value) {
+			if emptyMode == EmptyTableOmit {
+				continue // leave as nil (null)
+			}
+			arr[e.key-1] = json.RawMessage(marshalEmptyValue(emptyMode))
+		} else {
+			arr[e.key-1] = e.value
+		}
 	}
 
 	return arr, true
