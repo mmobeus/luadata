@@ -1,3 +1,4 @@
 # Build outputs
 bin/
 /wasm
+.claude
