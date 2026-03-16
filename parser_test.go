@@ -1,6 +1,7 @@
 package luadata
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -419,6 +420,66 @@ func TestParseText_NegativeNumbers(t *testing.T) {
 			}
 			if val != tt.raw {
 				t.Errorf("expected %d, got %d", tt.raw, val)
+			}
+		})
+	}
+}
+
+func TestConvertTable_ImplicitArrayRendersAsJSONArray(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple implicit array",
+			input:    `data={"foo","bar","baz"}`,
+			expected: `{"data":["foo","bar","baz"]}`,
+		},
+		{
+			name: "nested implicit array",
+			input: `data={
+["list"]={"a","b","c"},
+}`,
+			expected: `{"data":{"list":["a","b","c"]}}`,
+		},
+		{
+			name:     "explicit integer keys render as map",
+			input:    `data={[1]="a",[3]="c"}`,
+			expected: `{"data":{"1":"a","3":"c"}}`,
+		},
+		{
+			name: "mixed keys render as map",
+			input: `data={
+"foo",
+["name"]="bar",
+}`,
+			expected: `{"data":{"1":"foo","name":"bar"}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseText("input", tt.input)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			got, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("unexpected marshal error: %v", err)
+			}
+
+			// json.NewEncoder adds a trailing newline; json.Marshal does not,
+			// but MarshalJSON uses NewEncoder internally, so trim.
+			gotStr := string(got)
+			// Remove trailing newline if present
+			if len(gotStr) > 0 && gotStr[len(gotStr)-1] == '\n' {
+				gotStr = gotStr[:len(gotStr)-1]
+			}
+
+			if gotStr != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, gotStr)
 			}
 		})
 	}
