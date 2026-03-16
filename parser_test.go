@@ -754,3 +754,202 @@ func TestWithArrayDetection(t *testing.T) {
 		})
 	}
 }
+
+func TestWithEmptyTableMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		mode     EmptyTableMode
+		useOpt   bool // false = use default (no option)
+		expected string
+	}{
+		// Default behavior (no option): null
+		{
+			name:     "default renders empty as null",
+			input:    `foo={}`,
+			expected: `{"foo":null}`,
+		},
+		// EmptyTableNull
+		{
+			name:     "null mode inline empty",
+			input:    `foo={}`,
+			mode:     EmptyTableNull,
+			useOpt:   true,
+			expected: `{"foo":null}`,
+		},
+		{
+			name:     "null mode whitespace empty",
+			input:    "foo={\n}",
+			mode:     EmptyTableNull,
+			useOpt:   true,
+			expected: `{"foo":null}`,
+		},
+		// EmptyTableOmit
+		{
+			name:     "omit mode removes key",
+			input:    "foo={}\nbar=1",
+			mode:     EmptyTableOmit,
+			useOpt:   true,
+			expected: `{"bar":1}`,
+		},
+		{
+			name:     "omit mode whitespace empty",
+			input:    "foo={\n}\nbar=1",
+			mode:     EmptyTableOmit,
+			useOpt:   true,
+			expected: `{"bar":1}`,
+		},
+		{
+			name:     "omit mode all empty",
+			input:    `foo={}`,
+			mode:     EmptyTableOmit,
+			useOpt:   true,
+			expected: `{}`,
+		},
+		// EmptyTableArray
+		{
+			name:     "array mode inline empty",
+			input:    `foo={}`,
+			mode:     EmptyTableArray,
+			useOpt:   true,
+			expected: `{"foo":[]}`,
+		},
+		{
+			name:     "array mode whitespace empty",
+			input:    "foo={\n}",
+			mode:     EmptyTableArray,
+			useOpt:   true,
+			expected: `{"foo":[]}`,
+		},
+		// EmptyTableObject
+		{
+			name:     "object mode inline empty",
+			input:    `foo={}`,
+			mode:     EmptyTableObject,
+			useOpt:   true,
+			expected: `{"foo":{}}`,
+		},
+		{
+			name:     "object mode whitespace empty",
+			input:    "foo={\n}",
+			mode:     EmptyTableObject,
+			useOpt:   true,
+			expected: `{"foo":{}}`,
+		},
+		// Nested empty tables
+		{
+			name:     "nested empty null",
+			input:    `data={["a"]={},["b"]=1}`,
+			mode:     EmptyTableNull,
+			useOpt:   true,
+			expected: `{"data":{"a":null,"b":1}}`,
+		},
+		{
+			name:     "nested empty omit",
+			input:    `data={["a"]={},["b"]=1}`,
+			mode:     EmptyTableOmit,
+			useOpt:   true,
+			expected: `{"data":{"b":1}}`,
+		},
+		{
+			name:     "nested empty array",
+			input:    `data={["a"]={},["b"]=1}`,
+			mode:     EmptyTableArray,
+			useOpt:   true,
+			expected: `{"data":{"a":[],"b":1}}`,
+		},
+		{
+			name:     "nested empty object",
+			input:    `data={["a"]={},["b"]=1}`,
+			mode:     EmptyTableObject,
+			useOpt:   true,
+			expected: `{"data":{"a":{},"b":1}}`,
+		},
+		// Empty tables inside implicit index arrays
+		{
+			name:     "array element empty null",
+			input:    `data={{},1,2}`,
+			mode:     EmptyTableNull,
+			useOpt:   true,
+			expected: `{"data":[null,1,2]}`,
+		},
+		{
+			name:     "array element empty omit",
+			input:    `data={{},1,2}`,
+			mode:     EmptyTableOmit,
+			useOpt:   true,
+			expected: `{"data":[1,2]}`,
+		},
+		{
+			name:     "array element empty array",
+			input:    `data={{},1,2}`,
+			mode:     EmptyTableArray,
+			useOpt:   true,
+			expected: `{"data":[[],1,2]}`,
+		},
+		{
+			name:     "array element empty object",
+			input:    `data={{},1,2}`,
+			mode:     EmptyTableObject,
+			useOpt:   true,
+			expected: `{"data":[{},1,2]}`,
+		},
+		// Raw value (bare {}) — @root must never be omitted
+		{
+			name:     "raw empty table omit falls back to null",
+			input:    `{}`,
+			mode:     EmptyTableOmit,
+			useOpt:   true,
+			expected: `{"@root":null}`,
+		},
+		{
+			name:     "raw empty table null",
+			input:    `{}`,
+			mode:     EmptyTableNull,
+			useOpt:   true,
+			expected: `{"@root":null}`,
+		},
+		{
+			name:     "raw empty table array",
+			input:    `{}`,
+			mode:     EmptyTableArray,
+			useOpt:   true,
+			expected: `{"@root":[]}`,
+		},
+		{
+			name:     "raw empty table object",
+			input:    `{}`,
+			mode:     EmptyTableObject,
+			useOpt:   true,
+			expected: `{"@root":{}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var opts []Option
+			if tt.useOpt {
+				opts = append(opts, WithEmptyTableMode(tt.mode))
+			}
+
+			result, err := ParseText("input", tt.input, opts...)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+
+			got, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("unexpected marshal error: %v", err)
+			}
+
+			gotStr := string(got)
+			if len(gotStr) > 0 && gotStr[len(gotStr)-1] == '\n' {
+				gotStr = gotStr[:len(gotStr)-1]
+			}
+
+			if gotStr != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, gotStr)
+			}
+		})
+	}
+}
