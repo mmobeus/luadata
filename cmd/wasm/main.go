@@ -3,6 +3,7 @@
 package main
 
 import (
+	"io"
 	"syscall/js"
 
 	"github.com/mmobeus/luadata"
@@ -14,7 +15,11 @@ func convertWrapper() js.Func {
 			return map[string]any{"error": "expected a string argument"}
 		}
 		input := args[0].String()
-		result, err := luadata.ToJSON([]byte(input))
+		reader, err := luadata.TextToJSON("input", input)
+		if err != nil {
+			return map[string]any{"error": err.Error()}
+		}
+		result, err := io.ReadAll(reader)
 		if err != nil {
 			return map[string]any{"error": err.Error()}
 		}

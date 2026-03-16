@@ -1,93 +1,145 @@
 # luadata
 
-A Go library for parsing Lua data files into JSON.
+A Go library that parses Lua data files into JSON. Useful for working with game addon data files like World of Warcraft SavedVariables.
 
-Parses `.lua` files containing variable assignments (e.g., `myVar = { ... }`) and converts them to structured JSON where each top-level variable becomes a JSON key. This is useful for working with game addon data files like World of Warcraft SavedVariables.
-
-## Supported Lua syntax
-
-- Strings (double-quoted, with escape sequences)
-- Integers and floats (including scientific notation, negatives)
-- Booleans (`true`/`false`) and `nil`
-- Tables (`{}`) with bracket-keyed entries (`["key"]=val`, `[1]=val`)
-- Implicit array indexing (values without keys get sequential numeric indices)
-- Nested tables (arbitrary depth)
-- Line comments (`--`) and block comments (`--[[ ]]`)
-
-## Installation
+## Install
 
 ```
 go get github.com/mmobeus/luadata
 ```
 
-## Usage
+## Examples
 
-### Go library
+### Lua to JSON
 
 ```go
-import "github.com/mmobeus/luadata"
+input := []byte(`
+playerName = "Thrall"
+playerLevel = 60
+settings = {
+    ["showHelm"] = true,
+    ["ui"] = {
+        ["scale"] = 1.25,
+        ["panels"] = {"map", "inventory", "chat"},
+    },
+}
+`)
 
-// Parse from file
+jsonReader, err := luadata.ToJSON(input)
+```
+
+Output:
+
+```json
+{
+  "playerName": "Thrall",
+  "playerLevel": 60,
+  "settings": {
+    "showHelm": true,
+    "ui": {
+      "panels": ["map", "inventory", "chat"],
+      "scale": 1.25
+    }
+  }
+}
+```
+
+### Typed access
+
+```go
 data, err := luadata.ParseFile("saved.lua")
 
-// Parse from string
-data, err := luadata.ParseText("input", luaString)
-
-// Quick convert to JSON
-jsonBytes, err := luadata.ToJSON(luaBytes)
-
-// Access typed values
 name := data.GetString("playerName")
 level := data.GetInt("playerLevel")
-settings := data.GetTable("userSettings")
+settings := data.GetTable("settings")
 
-// Safe access with ok pattern
 if hp, ok := data.MaybeGetInt("health"); ok {
     fmt.Println(hp)
 }
 ```
 
-Available accessors on `KeyValuePairs`:
 
-| Method                                   | Return type      |
-|------------------------------------------|------------------|
-| `GetString(key)` / `MaybeGetString(key)` | `string`         |
-| `GetInt(key)` / `MaybeGetInt(key)`       | `int64`          |
-| `GetFloat(key)` / `MaybeGetFloat(key)`   | `float64`        |
-| `GetBool(key)` / `MaybeGetBool(key)`     | `bool`           |
-| `GetTable(key)` / `MaybeGetTable(key)`   | `KeyValuePairs`  |
-| `Len()`                                  | `int`            |
-| `Pairs()`                                | `[]KeyValuePair` |
+## Saved variable format
 
-### CLI
+The library parses Lua files containing top-level variable assignments. This is a common data persistence technique used by Lua systems (including World of Warcraft addon data). Each assignment is a variable name followed by `=` and a value:
+
+```lua
+playerName = "Thrall"
+playerLevel = 60
+guildRoster = {
+    ["Thrall"] = {
+        ["level"] = 60,
+        ["class"] = "Shaman",
+    },
+}
+```
+
+This is a valid Lua file, with a list of assignments to inline data values. These are parsed into a map-like structure, where the keys are the variable names, and the values are json equivalents of the Lua values.
+
+## Raw values
+
+In addition to variable assignments, luadata can parse a single raw Lua value (a table, string, number, boolean, or `nil`). When a raw value is detected, the resulting map-like structure contains a single key `@root`, with the parsed lua value as the value.
+
+```go
+data, err := luadata.ParseText("input", `{["a"]=1,["b"]=2}`)
+// data has one entry with key "@root" containing the table
+```
 
 ```bash
-# Build
+echo '{"a","b","c"}' | bin/cli/luadata tojson -
+# {"@root":["a","b","c"]}
+```
+
+## CLI
+
+```bash
 make build
 
-# Convert a file to JSON
 bin/cli/luadata tojson config.lua
 
-# Read from stdin
 cat config.lua | bin/cli/luadata tojson -
 ```
 
-### WebAssembly
+## API reference
 
-The converter is also available as a WebAssembly module. Build it with:
+Parse into `KeyValuePairs`:
 
-```bash
-GOOS=js GOARCH=wasm go build -o luadata.wasm ./cmd/wasm
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
-```
+| Function                     | Description                        |
+|------------------------------|------------------------------------|
+| `ParseFile(path)`            | Parse a `.lua` file from disk      |
+| `ParseText(name, text)`      | Parse Lua data from a string       |
+| `ParseReader(name, reader)`  | Parse Lua data from an `io.Reader` |
 
-Or use the Makefile:
+Convert to JSON (`io.Reader`):
+
+| Function                     | Description                     |
+|------------------------------|---------------------------------|
+| `FileToJSON(path)`           | File to JSON                    |
+| `TextToJSON(name, text)`     | String to JSON                  |
+| `ReaderToJSON(name, reader)` | `io.Reader` to JSON             |
+| `ToJSON(luaBytes)`           | `[]byte` to JSON                |
+
+Accessors on `KeyValuePairs`:
+
+| Method                                     | Return type      |
+|--------------------------------------------|------------------|
+| `GetString(key)` / `MaybeGetString(key)`   | `string`         |
+| `GetInt(key)` / `MaybeGetInt(key)`         | `int64`          |
+| `GetFloat(key)` / `MaybeGetFloat(key)`     | `float64`        |
+| `GetBool(key)` / `MaybeGetBool(key)`       | `bool`           |
+| `GetTable(key)` / `MaybeGetTable(key)`     | `KeyValuePairs`  |
+| `Len()`                                    | `int`            |
+| `Pairs()`                                  | `[]KeyValuePair` |
+
+## WebAssembly
+
+The converter is available as a WebAssembly module:
 
 ```bash
 make build-wasm  # outputs to bin/web/
 ```
 
-Load and call it from JavaScript:
+Load from JavaScript:
 
 ```html
 <script src="wasm_exec.js"></script>
@@ -96,7 +148,6 @@ const go = new Go();
 WebAssembly.instantiateStreaming(fetch("luadata.wasm"), go.importObject).then((result) => {
     go.run(result.instance);
 
-    // convertLuaDataToJson is now available globally
     const output = convertLuaDataToJson('playerName = "Thrall"');
     if (output.error) {
         console.error(output.error);
@@ -107,77 +158,13 @@ WebAssembly.instantiateStreaming(fetch("luadata.wasm"), go.importObject).then((r
 </script>
 ```
 
-The function `convertLuaDataToJson(input)` takes a Lua data string and returns `{ result: string }` on success or `{ error: string }` on failure.
-
 > **Note:** `wasm_exec.js` must come from the same Go version used to compile the `.wasm` file.
 
-#### Web UI
-
-A ready-made web interface is included:
+A ready-made web interface is also included:
 
 ```bash
 make serve
 # Opens at http://localhost:8080
-```
-
-Paste Lua data on the left, get JSON on the right.
-
-## Raw values
-
-In addition to variable assignments, luadata can parse files containing a single raw Lua value (e.g., just a table, string, number, boolean, or `nil`). When a raw value is detected, the result contains a single top-level key `@root` (which cannot collide with valid Lua identifiers).
-
-```go
-data, err := luadata.ParseText("input", `{["a"]=1,["b"]=2}`)
-// data has one entry with key "@root" containing the table
-
-data, err = luadata.ParseText("input", `"hello"`)
-// data.GetString("@root") == "hello"
-```
-
-CLI example:
-
-```bash
-echo '{"a","b","c"}' | bin/cli/luadata tojson -
-# {"@root":{"1":"a","2":"b","3":"c"}}
-```
-
-Raw value mode is exclusive — only one value per input is allowed, and trailing content after the value produces an error.
-
-## Example
-
-Input (`saved.lua`):
-
-```lua
--- Character data
-playerName = "Thrall"
-playerLevel = 60
-settings = {
-    ["showHelm"] = true,
-    ["ui"] = {
-        ["scale"] = 1.25,
-        ["panels"] = {"map", "inventory", "chat"},
-    },
-}
-```
-
-Output:
-
-```json
-{
-  "playerLevel": 60,
-  "playerName": "Thrall",
-  "settings": {
-    "showHelm": true,
-    "ui": {
-      "panels": {
-        "1": "map",
-        "2": "inventory",
-        "3": "chat"
-      },
-      "scale": 1.25
-    }
-  }
-}
 ```
 
 ## Development
@@ -202,13 +189,22 @@ make check
 
 Runs build, tests, and lint — the same checks as the GitHub Actions workflow.
 
-| Command        | Description                       |
-|----------------|-----------------------------------|
-| `make test`    | Run tests                         |
-| `make lint`    | Run golangci-lint (includes fmt)  |
-| `make fmt`     | Format code with gofumpt          |
-| `make check`   | Run build + test + lint           |
-| `make setup`   | Install dev tools                 |
+| Command        | Description                      |
+|----------------|----------------------------------|
+| `make test`    | Run tests                        |
+| `make lint`    | Run golangci-lint (includes fmt) |
+| `make fmt`     | Format code with gofumpt         |
+| `make check`   | Run build + test + lint          |
+| `make setup`   | Install dev tools                |
+
+### Building
+
+| Command            | Description                            |
+|--------------------|----------------------------------------|
+| `make build`       | Build CLI binary to `bin/cli/luadata`  |
+| `make build-wasm`  | Build WebAssembly module to `bin/web/` |
+| `make serve`       | Build WASM and serve web UI on `:8080` |
+| `make clean`       | Remove `bin/` directory                |
 
 ### Releasing
 
@@ -222,34 +218,11 @@ This finds the latest semver tag, bumps the patch version (e.g. `v0.1.0` → `v0
 
 For other version bumps, set `BUMP`:
 
-| Command                    | Description                          |
-|----------------------------|--------------------------------------|
-| `make release`             | Patch bump (default)                 |
-| `make release BUMP=minor`  | Minor bump, resets patch to 0        |
-| `make release BUMP=major`  | Major bump, resets minor and patch   |
-| `make release BUMP=manual` | Prompt for an exact version string   |
+| Command                     | Description                        |
+|-----------------------------|------------------------------------|
+| `make release`              | Patch bump (default)               |
+| `make release BUMP=minor`   | Minor bump, resets patch to 0      |
+| `make release BUMP=major`   | Major bump, resets minor and patch |
+| `make release BUMP=manual`  | Prompt for an exact version string |
 
 Requires the [GitHub CLI](https://cli.github.com/) (`gh`) for creating GitHub releases.
-
-## Building
-
-| Command           | Description                            |
-|-------------------|----------------------------------------|
-| `make build`      | Build CLI binary to `bin/cli/luadata`  |
-| `make build-wasm` | Build WebAssembly module to `bin/web/` |
-| `make serve`      | Build WASM and serve web UI on `:8080` |
-| `make clean`      | Remove `bin/` directory                |
-
-## Testing
-
-```
-go test ./...
-```
-
-## Zero dependencies
-
-Uses only the Go standard library.
-
-## License
-
-[MIT](LICENSE)
