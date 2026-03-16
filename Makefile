@@ -31,7 +31,7 @@ fmt:
 fmt-check:
 	@test -z "$$(gofumpt -d .)" || (echo "files need formatting — run 'make fmt'" && gofumpt -d . && exit 1)
 
-check: build test lint
+check: build test lint fmt-check validate-testdata
 	GOOS=js GOARCH=wasm go vet ./cmd/wasm
 
 setup:
