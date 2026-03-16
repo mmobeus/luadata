@@ -149,13 +149,29 @@ func (kvps KeyValuePairs) MarshalJSON() ([]byte, error) {
 }
 
 func convertTable(table []KeyValuePair) interface{} {
-	// initially, this tried to attempt to swizzle tables with monotonically increasing numeric keys
-	// into arrays, but that lead to too much non-determinism with lua's sparse array handling. for
-	// example, when parsing several examples for what should be the same data (eg a single addon's
-	// data for the same person over time), sometimes the sparse array may look like an array, and render
-	// as an array, while other times it was too sparse to look like an array, so was rendered as a map.
-	// this way is more inflated, but ultimately more deterministic (and not as beefy as the full on
-	// KeyValuePairs type).
+	// If all keys are implicit Index keys (from {"a","b","c"} syntax), render as a JSON array.
+	// Index keys are always contiguous and 1-based by construction. Explicit integer keys
+	// like [1]="a" use Int type and still render as maps, avoiding non-determinism with
+	// sparse arrays.
+	// NOTE: this may need to have an explicit config/mode for the parser. If an addon has an
+	// array, it may render as a concise array, until some later time where it may become sparse
+	// (eg an entry is removed). Which is back to the non-determinism (in the final JSON shape
+	// across parses across time for the same file/data).
+	allIndex := len(table) > 0
+	for _, kv := range table {
+		if kv.Key.Type != Index {
+			allIndex = false
+			break
+		}
+	}
+	if allIndex {
+		arr := make([]interface{}, len(table))
+		for i, kv := range table {
+			arr[i] = kv.Value
+		}
+		return arr
+	}
+
 	tableMap := make(map[string]interface{})
 	for _, kv := range table {
 		if _, ok := tableMap[kv.Key.Source]; ok {
