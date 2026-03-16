@@ -34,20 +34,20 @@ func WithStringTransform(st StringTransform) Option {
 	}
 }
 
-func (c *parseConfig) transformString(source string) string {
+func (c *parseConfig) transformString(source string) (string, bool) {
 	if c.stringTransform == nil || len(source) <= c.stringTransform.MaxLen {
-		return source
+		return source, false
 	}
 	switch c.stringTransform.Mode {
 	case StringTransformTruncate:
-		return source[:c.stringTransform.MaxLen]
+		return source[:c.stringTransform.MaxLen], true
 	case StringTransformEmpty:
-		return ""
+		return "", true
 	case StringTransformRedact:
-		return "[redacted]"
+		return "[redacted]", true
 	case StringTransformReplace:
-		return c.stringTransform.Replacement
+		return c.stringTransform.Replacement, true
 	default:
-		return source
+		return source, false
 	}
 }

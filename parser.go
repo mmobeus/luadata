@@ -985,13 +985,12 @@ func readQuotedStringValue(lex *lexer) (Value, error) {
 		case '"':
 			quotedVal := lex.take()
 			sourceVal := quotedVal[1 : len(quotedVal)-1]
-			transformed := lex.config.transformString(sourceVal)
-			wasTransformed := transformed != sourceVal
+			val, wasTransformed := lex.config.transformString(sourceVal)
 
 			return Value{
 				Type:        StringValue,
-				Source:      transformed,
-				Raw:         transformed,
+				Source:      val,
+				Raw:         val,
 				Transformed: wasTransformed,
 			}, nil
 		}
