@@ -15,11 +15,62 @@
         button { margin-top: 1rem; padding: 0.5rem 1.5rem; font-size: 1rem; cursor: pointer; align-self: flex-start; }
         #error { color: red; margin-top: 0.5rem; }
         #status { margin-bottom: 1rem; color: #666; }
+        details { margin-bottom: 1rem; }
+        summary { cursor: pointer; font-weight: 600; margin-bottom: 0.5rem; }
+        .options-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; align-items: center; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
+        .options-grid label { font-weight: normal; margin-bottom: 0; }
+        .options-grid select, .options-grid input { padding: 0.25rem 0.4rem; font-size: 0.9rem; }
+        .options-grid input[type="number"] { width: 80px; }
+        .options-grid input[type="text"] { width: 200px; }
+        .hidden { display: none; }
+        .inline-row { display: flex; align-items: center; gap: 0.6rem; }
+        .inline-row label { margin-bottom: 0; }
+        .hint { display: inline-block; width: 1.1em; height: 1.1em; line-height: 1.1em; text-align: center; font-size: 0.75rem; color: #666; border: 1px solid #ccc; border-radius: 50%; cursor: help; margin-left: 0.3rem; vertical-align: middle; position: relative; }
+        .hint:hover::after { content: attr(data-tip); position: absolute; left: 1.5em; top: -0.3em; background: #333; color: #fff; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.8rem; white-space: normal; width: 260px; z-index: 10; line-height: 1.4; font-weight: normal; }
     </style>
 </head>
 <body>
     <h1>Lua Data → JSON</h1>
     <p id="status">Loading WASM…</p>
+
+    <details id="options">
+        <summary>Options</summary>
+        <div class="options-grid">
+            <label for="opt-empty-table">Empty Table <span class="hint" data-tip="Controls how empty Lua tables ({}) appear in JSON. 'null' renders as null, 'omit' removes the key entirely, 'array' renders as [], and 'object' renders as {}.">?</span></label>
+            <select id="opt-empty-table">
+                <option value="null" selected>null</option>
+                <option value="omit">omit</option>
+                <option value="array">array ([])</option>
+                <option value="object">object ({})</option>
+            </select>
+
+            <label for="opt-array-mode">Array Detection <span class="hint" data-tip="Controls how Lua tables with integer keys are rendered. 'sparse' allows gaps between keys (filled with null), 'index-only' only converts implicit index tables like {&quot;a&quot;,&quot;b&quot;,&quot;c&quot;}, and 'none' renders all tables as JSON objects.">?</span></label>
+            <div class="inline-row">
+                <select id="opt-array-mode">
+                    <option value="sparse" selected>sparse</option>
+                    <option value="index-only">index-only</option>
+                    <option value="none">none</option>
+                </select>
+                <label for="opt-array-max-gap" id="lbl-array-max-gap">Max Gap <span class="hint" data-tip="The maximum gap allowed between consecutive integer keys when rendering a sparse table as a JSON array. For example, a gap of 2 means {[1]=&quot;a&quot;, [4]=&quot;b&quot;} becomes an array with nulls filling indices 2 and 3. Set to 0 to require contiguous keys starting at 1.">?</span></label>
+                <input type="number" id="opt-array-max-gap" value="20" min="0">
+            </div>
+
+            <label for="opt-string-max-len">String Max Length <span class="hint" data-tip="Strings longer than this value will be transformed according to the Transform setting. Set to 0 to disable string transformation entirely.">?</span></label>
+            <div class="inline-row">
+                <input type="number" id="opt-string-max-len" value="0" min="0" placeholder="0 = disabled">
+                <label for="opt-string-mode" id="lbl-string-mode" class="hidden">Transform <span class="hint" data-tip="How to handle strings that exceed the max length. 'truncate' cuts to max length, 'empty' replaces with an empty string, 'redact' replaces with [redacted], and 'replace' uses your custom replacement text.">?</span></label>
+                <select id="opt-string-mode" class="hidden">
+                    <option value="truncate" selected>truncate</option>
+                    <option value="empty">empty</option>
+                    <option value="redact">redact</option>
+                    <option value="replace">replace</option>
+                </select>
+            </div>
+
+            <label for="opt-string-replacement" id="lbl-string-replacement" class="hidden">Replacement <span class="hint" data-tip="The custom text to substitute for strings that exceed the max length. Only used when Transform is set to 'replace'.">?</span></label>
+            <input type="text" id="opt-string-replacement" class="hidden" placeholder="replacement text">
+        </div>
+    </details>
 
     <div class="panels">
         <div class="panel">
@@ -36,34 +87,6 @@
     <p id="error"></p>
 
     <script src="wasm_exec.js"></script>
-    <script>
-        const go = new Go();
-        WebAssembly.instantiateStreaming(fetch("luadata.wasm"), go.importObject).then((result) => {
-            go.run(result.instance);
-            document.getElementById("status").textContent = "Ready.";
-            document.getElementById("convert-btn").disabled = false;
-        }).catch((err) => {
-            document.getElementById("status").textContent = "Failed to load WASM: " + err;
-        });
-
-        document.getElementById("convert-btn").addEventListener("click", () => {
-            const input = document.getElementById("lua-input").value;
-            const errorEl = document.getElementById("error");
-            const outputEl = document.getElementById("json-output");
-            errorEl.textContent = "";
-            outputEl.value = "";
-
-            const res = convertLuaDataToJson(input);
-            if (res.error) {
-                errorEl.textContent = res.error;
-            } else {
-                try {
-                    outputEl.value = JSON.stringify(JSON.parse(res.result), null, 2);
-                } catch {
-                    outputEl.value = res.result;
-                }
-            }
-        });
-    </script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
