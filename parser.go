@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -288,13 +289,24 @@ func (v Value) MarshalJSON() ([]byte, error) {
 	return bb.Bytes(), nil
 }
 
+// ParseReader parses Lua data from an io.Reader.
+func ParseReader(name string, r io.Reader) (KeyValuePairs, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return KeyValuePairs{}, fmt.Errorf("parse failure in %s: %w", name, err)
+	}
+
+	return ParseText(name, string(data))
+}
+
 func ParseFile(filePath string) (KeyValuePairs, error) {
-	file, err := os.ReadFile(filePath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		return KeyValuePairs{}, fmt.Errorf("parse failure in %s: %w", filePath, err)
 	}
+	defer func() { _ = file.Close() }()
 
-	return ParseText(filePath, string(file))
+	return ParseReader(filePath, file)
 }
 
 func ParseText(name, text string) (KeyValuePairs, error) {

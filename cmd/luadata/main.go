@@ -31,26 +31,24 @@ func toJSON() {
 		os.Exit(1)
 	}
 
-	var input []byte
+	var result io.Reader
 	var err error
 
 	if os.Args[2] == "-" {
-		input, err = io.ReadAll(os.Stdin)
+		result, err = luadata.ReaderToJSON("stdin", os.Stdin)
 	} else {
-		input, err = os.ReadFile(os.Args[2])
+		result, err = luadata.FileToJSON(os.Args[2])
 	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
-		os.Exit(1)
-	}
-
-	result, err := luadata.ToJSON(input)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error converting: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(string(result))
+	if _, err = io.Copy(os.Stdout, result); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing output: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println()
 }
 
 func validate() {
@@ -59,13 +57,7 @@ func validate() {
 		os.Exit(1)
 	}
 
-	input, err := os.ReadFile(os.Args[2])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
-		os.Exit(1)
-	}
-
-	_, err = luadata.ToJSON(input)
+	_, err := luadata.FileToJSON(os.Args[2])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error validating %s: %v\n", os.Args[2], err)
 		os.Exit(1)
