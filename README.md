@@ -2,6 +2,12 @@
 
 A Go library that parses Lua data files into JSON. Useful for working with game addon data files like World of Warcraft SavedVariables.
 
+## Docs
+
+**[Luadata by Example](https://mmobeus.github.io/luadata/docs/)** — A guided tour of all features with interactive examples.
+
+**[Live Converter](https://mmobeus.github.io/luadata/)** — Try it in your browser. Paste Lua data and get JSON instantly.
+
 ## Install
 
 ```
