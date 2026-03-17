@@ -1,0 +1,230 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #333;
+    line-height: 1.6;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.tool-name {
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+h1 { margin-bottom: 0.5rem; font-size: 1.75rem; }
+h2 { margin: 1.5rem 0 0.5rem; font-size: 1.1rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.subtitle { color: #666; margin-bottom: 2rem; }
+
+/* Index page */
+.example-list { list-style: none; padding: 0; margin-bottom: 1.5rem; }
+.example-list li { padding: 0.3rem 0; }
+.example-list a { font-size: 1.05rem; }
+
+/* Example page */
+.header a { color: #666; font-size: 0.9rem; }
+.header h1 { margin-top: 0.25rem; }
+
+.section { margin: 1.25rem 0; }
+
+.section p {
+    margin: 0.5rem 0;
+    line-height: 1.7;
+}
+
+.code-block {
+    position: relative;
+    margin: 1rem 0;
+}
+
+.code-block .lang-badge {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.5rem;
+    font-size: 0.7rem;
+    font-family: system-ui, sans-serif;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.code-block pre {
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.code-block pre code {
+    display: block;
+    padding: 1rem;
+    padding-right: 3.5rem;
+}
+
+.code-block pre code.hljs {
+    background: transparent;
+}
+
+.output-block pre {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #2a2a4e;
+    border-radius: 6px;
+    padding: 0;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.output-block pre:not(:has(code)) {
+    padding: 1rem;
+}
+
+.output-block pre code {
+    display: block;
+    padding: 1rem;
+}
+
+.output-block pre code.hljs {
+    background: transparent;
+}
+
+/* Dark-friendly highlight.js token overrides for output blocks */
+.output-block .hljs-attr { color: #7ec8e3; }
+.output-block .hljs-string { color: #a8d89f; }
+.output-block .hljs-number { color: #d4a0e0; }
+.output-block .hljs-literal { color: #e0a070; }
+.output-block .hljs-punctuation { color: #c0c0c0; }
+
+.output-block .output-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+/* Interactive elements */
+.interactive-toolbar {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+.interactive-toolbar button {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    font-family: system-ui, sans-serif;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #fff;
+    color: #333;
+}
+
+.interactive-toolbar .run-btn {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+
+.interactive-toolbar .run-btn:hover {
+    background: #1d4ed8;
+}
+
+.interactive-toolbar .reset-btn:hover {
+    background: #f5f5f5;
+}
+
+.lua-editor {
+    width: 100%;
+    min-height: 3rem;
+    padding: 1rem;
+    padding-right: 3.5rem;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    background: #f5f5f5;
+    border: 2px solid #2563eb;
+    border-radius: 6px;
+    resize: vertical;
+    tab-size: 4;
+    color: #333;
+}
+
+.lua-editor:focus {
+    outline: none;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.code-block-lua pre {
+    transition: border-color 0.15s;
+}
+
+.code-block-lua pre:hover {
+    border-color: #2563eb;
+}
+
+.output-error {
+    color: #f87171;
+}
+
+.try-converter {
+    margin-top: 2rem;
+    padding: 0.75rem 1rem;
+    background: #f0f7ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #1e40af;
+}
+
+.try-converter a {
+    font-weight: 600;
+}
+
+/* Navigation */
+.nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.nav a {
+    font-size: 0.95rem;
+}
+
+.nav .next { margin-left: auto; }
+
+/* Footer */
+.footer {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+    font-size: 0.85rem;
+    color: #999;
+}
+
+.footer a { color: #999; }
+.footer a:hover { color: #666; }
+
+@media (max-width: 500px) {
+    body { padding: 1rem; }
+    h1 { font-size: 1.4rem; }
+    .code-block pre, .output-block pre { font-size: 0.8rem; padding: 0.75rem; }
+}

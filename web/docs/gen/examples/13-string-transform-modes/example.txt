@@ -1,0 +1,48 @@
+String Transform Modes
+---options
+{"stringTransform":{"maxLen":10,"mode":"truncate"}}
+---
+There are four modes for handling strings that exceed MaxLen. All examples
+below use MaxLen of 10 on this input:
+---lua
+data = "hello world, this is a long string"
+---
+StringTransformTruncate (default) cuts the string to MaxLen:
+---json
+{
+  "data": "hello worl"
+}
+---
+StringTransformEmpty replaces the string with an empty string:
+---json
+{
+  "data": ""
+}
+---
+StringTransformRedact replaces the string with "[redacted]":
+---json
+{
+  "data": "[redacted]"
+}
+---
+StringTransformReplace uses a custom replacement string:
+---go
+reader, err := luadata.TextToJSON("input", input,
+    luadata.WithStringTransform(luadata.StringTransform{
+        MaxLen:      10,
+        Mode:        luadata.StringTransformReplace,
+        Replacement: "<too long>",
+    }),
+)
+---json
+{
+  "data": "<too long>"
+}
+---
+From the CLI, use the --string-max-len and --string-mode flags:
+---bash
+luadata tojson --string-max-len=10 --string-mode=redact input.lua
+---
+For the replace mode, add --string-replacement:
+---bash
+luadata tojson --string-max-len=10 --string-mode=replace --string-replacement="<too long>" input.lua

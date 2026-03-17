@@ -1,0 +1,49 @@
+Working with Pairs
+---
+For more advanced use cases, you can iterate over all key-value pairs
+directly. This gives you access to the raw Key and Value types with
+their metadata.
+---go
+package main
+
+import (
+    "fmt"
+
+    "github.com/mmobeus/luadata"
+)
+
+func main() {
+    data, _ := luadata.ParseText("input", `
+name = "Thrall"
+level = 60
+active = true
+`)
+
+    fmt.Printf("Total pairs: %d\n\n", data.Len())
+
+    for _, pair := range data.Pairs() {
+        fmt.Printf("Key:   %s (type: %d)\n", pair.Key.Source, pair.Key.Type)
+        fmt.Printf("Value: %v (type: %d)\n\n", pair.Value.Raw, pair.Value.Type)
+    }
+}
+---output
+Total pairs: 3
+
+Key:   name (type: 0)
+Value: Thrall (type: 1)
+
+Key:   level (type: 0)
+Value: 60 (type: 2)
+
+Key:   active (type: 0)
+Value: true (type: 4)
+---
+Key types are: Identifier (0), Index (1), String (2), Int (3), Bool (4),
+Float (5).
+
+Value types are: TableValue (0), StringValue (1), IntValue (2),
+FloatValue (3), BoolValue (4), EmptyValue (5), NilValue (6).
+
+The Source field contains the original text representation from the Lua file,
+while Raw contains the parsed Go value (string, int64, float64, bool, or
+KeyValuePairs for tables).

@@ -1,0 +1,25 @@
+Data Types
+---
+luadata handles all Lua data types and converts them to their JSON equivalents.
+---lua
+name = "Anduin"
+level = 70
+health = 98.5
+active = true
+guild = nil
+---output
+{
+  "name": "Anduin",
+  "level": 70,
+  "health": 98.5,
+  "active": true,
+  "guild": null
+}
+---
+The type mapping is straightforward:
+
+Lua strings become JSON strings. Integers and floats become JSON numbers.
+Booleans map directly. Lua nil becomes JSON null.
+
+luadata also supports negative numbers, scientific notation (like 1.5e-3),
+and strings with escape sequences.

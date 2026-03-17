@@ -1,0 +1,46 @@
+Hello Luadata
+---
+luadata is a Go library that converts Lua data files into JSON. This is
+especially useful for parsing game addon data like World of Warcraft
+SavedVariables files.
+
+Let's start with the simplest case: a single variable assignment.
+---lua
+playerName = "Thrall"
+---
+This Lua file assigns the string "Thrall" to a variable called playerName.
+luadata parses this into a JSON object where the variable name becomes a key.
+---go
+package main
+
+import (
+    "fmt"
+    "io"
+
+    "github.com/mmobeus/luadata"
+)
+
+func main() {
+    input := []byte(`playerName = "Thrall"`)
+    reader, err := luadata.ToJSON(input)
+    if err != nil {
+        panic(err)
+    }
+    result, _ := io.ReadAll(reader)
+    fmt.Println(string(result))
+}
+---output
+{
+  "playerName": "Thrall"
+}
+---
+You can also convert from a file on disk using FileToJSON, from a string
+using TextToJSON, or from any io.Reader using ReaderToJSON.
+
+The CLI tool provides the same conversion from the command line.
+---bash
+echo 'playerName = "Thrall"' | luadata tojson -
+---output
+{
+  "playerName": "Thrall"
+}

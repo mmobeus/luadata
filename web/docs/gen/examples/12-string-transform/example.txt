@@ -1,0 +1,34 @@
+String Transform
+---options
+{"stringTransform":{"maxLen":20,"mode":"truncate"}}
+---
+Game addon data files can contain enormous strings — serialized data blobs,
+encoded textures, or chat logs that run to hundreds of thousands of characters.
+When you're parsing these files for structure, you often don't need the full
+string content.
+
+The WithStringTransform option lets you limit string lengths during parsing.
+Strings that exceed the configured MaxLen are automatically transformed.
+---lua
+name = "Thrall"
+biography = "A very long string that goes on and on and contains the entire history of the Horde from the First War through the events of the latest expansion including every battle and political development..."
+---go
+reader, err := luadata.TextToJSON("input", input,
+    luadata.WithStringTransform(luadata.StringTransform{
+        MaxLen: 20,
+        Mode:   luadata.StringTransformTruncate,
+    }),
+)
+---output
+{
+  "name": "Thrall",
+  "biography": "A very long string th"
+}
+---
+The name field is untouched because it's under 20 characters. The
+biography field is truncated to exactly 20 characters.
+
+The transformation happens during parsing, so the full string content is
+never stored in memory. This makes it safe to process very large files.
+
+The next example covers all four transform modes.
