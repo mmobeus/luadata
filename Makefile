@@ -2,7 +2,7 @@ GOLANGCI_LINT_VERSION := v2.11.3
 GOFUMPT_VERSION := v0.9.0
 BUMP ?= patch
 
-.PHONY: build build-wasm build-docs serve clean test lint fmt fmt-check check setup release validate validate-testdata
+.PHONY: build build-wasm build-docs build-site serve clean test lint fmt fmt-check check setup release validate validate-testdata
 
 build:
 	go build -o bin/cli/luadata ./cmd/luadata
@@ -15,7 +15,9 @@ build-wasm:
 build-docs:
 	go run ./web/docs/gen -out bin/web/docs
 
-serve: build-wasm build-docs
+build-site: build-wasm build-docs
+
+serve: build-site
 	@echo "Serving at http://localhost:8080"
 	@echo "Docs at http://localhost:8080/docs/"
 	cd bin/web && python3 -m http.server 8080
