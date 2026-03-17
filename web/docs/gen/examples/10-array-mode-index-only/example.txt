@@ -1,0 +1,42 @@
+Array Mode: Index Only
+---options
+{"arrayMode":"index-only"}
+---
+ArrayModeIndexOnly renders only implicit index tables as JSON arrays.
+Tables with explicit integer keys always render as objects.
+
+This distinguishes between two ways of writing the same data in Lua:
+---lua
+implicit = {"apple", "banana", "cherry"}
+explicit = {
+    [1] = "apple",
+    [2] = "banana",
+    [3] = "cherry",
+}
+---go
+reader, err := luadata.TextToJSON("input", input,
+    luadata.WithArrayDetection(luadata.ArrayModeIndexOnly{}),
+)
+---output
+{
+  "implicit": [
+    "apple",
+    "banana",
+    "cherry"
+  ],
+  "explicit": {
+    "1": "apple",
+    "2": "banana",
+    "3": "cherry"
+  }
+}
+---
+The implicit form {"a","b","c"} becomes a JSON array, while the explicit
+form {[1]="a",[2]="b"} stays as an object.
+
+This is useful when you want to be conservative about array detection and
+only convert tables that were clearly written with array syntax.
+
+From the CLI:
+---bash
+luadata tojson --array-mode=index-only input.lua

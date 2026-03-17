@@ -1,0 +1,41 @@
+Maybe Accessors
+---
+The Maybe variants of each accessor return a second boolean value indicating
+whether the key was found with the expected type. This follows Go's
+comma-ok idiom.
+---go
+package main
+
+import (
+    "fmt"
+
+    "github.com/mmobeus/luadata"
+)
+
+func main() {
+    data, _ := luadata.ParseText("input", `score = 42`)
+
+    // Key exists with correct type
+    if val, ok := data.MaybeGetInt("score"); ok {
+        fmt.Printf("score: %d\n", val)
+    }
+
+    // Key is missing
+    if _, ok := data.MaybeGetInt("missing"); !ok {
+        fmt.Println("missing: not found")
+    }
+
+    // Key exists but wrong type
+    if _, ok := data.MaybeGetString("score"); !ok {
+        fmt.Println("score as string: wrong type")
+    }
+}
+---output
+score: 42
+missing: not found
+score as string: wrong type
+---
+The available Maybe accessors are: MaybeGetString, MaybeGetInt,
+MaybeGetFloat, MaybeGetBool, and MaybeGetTable. Each returns
+(value, bool) where bool is true only if the key exists and the
+value matches the requested type.

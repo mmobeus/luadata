@@ -1,0 +1,33 @@
+Array Detection
+---
+Lua doesn't have a separate array type. Both arrays and dictionaries are
+tables. This means luadata needs a strategy for deciding when a table
+should become a JSON array vs a JSON object.
+
+There are two ways to write array-like tables in Lua. The first uses
+implicit indices:
+---lua
+fruits = {"apple", "banana", "cherry"}
+---
+The second uses explicit integer keys:
+---lua
+fruits = {
+    [1] = "apple",
+    [2] = "banana",
+    [3] = "cherry",
+}
+---
+Both represent the same data in Lua, but the intent may differ. By default,
+luadata uses ArrayModeSparse with a MaxGap of 20, which renders both forms
+as JSON arrays:
+---output
+{
+  "fruits": [
+    "apple",
+    "banana",
+    "cherry"
+  ]
+}
+---
+The WithArrayDetection option gives you control over this behavior. The
+next three examples cover each array mode in detail.

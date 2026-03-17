@@ -1,0 +1,40 @@
+Using the WASM Module
+---
+luadata compiles to WebAssembly, letting you convert Lua data to JSON
+directly in the browser. The luadata.js wrapper provides a clean API.
+---js
+import { init, convert } from "./luadata.js";
+
+// Initialize the WASM module (do this once)
+await init();
+
+// Basic conversion
+const json = convert('playerName = "Thrall"');
+console.log(json);
+---output
+{
+  "playerName": "Thrall"
+}
+---
+You can pass options as a second argument to convert(). The options mirror
+the Go API:
+---js
+const json = convert(luaInput, {
+    emptyTable: "array",           // "null", "omit", "array", "object"
+    arrayMode: "sparse",           // "none", "index-only", "sparse"
+    arrayMaxGap: 10,               // used with "sparse" mode
+    stringTransform: {
+        maxLen: 100,
+        mode: "redact",            // "truncate", "empty", "redact", "replace"
+    },
+});
+---
+Build the WASM module with:
+---bash
+make build-wasm
+---
+This produces bin/web/luadata.wasm along with the supporting JavaScript
+files. Serve the bin/web directory with any HTTP server to use it.
+
+Try it live with the interactive converter tool — it uses the same WASM
+module under the hood.

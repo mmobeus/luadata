@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luadata by Example</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Luadata by Example</h1>
+    <p class="subtitle">A hands-on introduction to converting Lua data files to JSON with the <span class="tool-name">luadata</span> Go library.</p>
+
+    {{range .}}
+    <h2>{{.Name}}</h2>
+    <ul class="example-list">
+        {{range .Examples}}
+        <li><a href="{{.Slug}}.html">{{.Title}}</a></li>
+        {{end}}
+    </ul>
+    {{end}}
+
+    <div class="footer">
+        <a href="../index.html">Converter Tool</a> | <a href="https://github.com/mmobeus/luadata">GitHub</a>
+    </div>
+</body>
+</html>
