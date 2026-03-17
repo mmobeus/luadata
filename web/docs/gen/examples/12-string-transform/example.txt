@@ -31,4 +31,9 @@ biography field is truncated to exactly 20 characters.
 The transformation happens during parsing, so the full string content is
 never stored in memory. This makes it safe to process very large files.
 
+Like the other options, the string transform applies to all strings in
+the output. In a future version, we may support options scoped by key
+patterns and eventually mapping to a known schema, removing the need
+for these heuristics entirely.
+
 The next example covers all four transform modes.

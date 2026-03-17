@@ -23,8 +23,11 @@ config = {
   }
 }
 ---
-Tables can use bracketed string keys like ["host"], identifier-style
-keys, or integer keys. The nesting depth is unlimited.
+Table keys can be bracketed strings like ["host"], bracketed integers
+like [1], or even bracketed booleans and floats. Regardless of the
+original key type in Lua, all keys become strings in JSON since that
+is all JSON supports. The nesting depth is unlimited (well, aside
+from your available memory).
 
 This is common in SavedVariables files where addons store deeply nested
 configuration and state data.
