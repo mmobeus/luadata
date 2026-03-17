@@ -1,0 +1,33 @@
+Nested Tables
+---
+Lua tables can contain other tables, forming nested structures. These
+become nested JSON objects.
+---lua
+config = {
+    ["host"] = "localhost",
+    ["port"] = 8080,
+    ["options"] = {
+        ["debug"] = true,
+        ["timeout"] = 30,
+    },
+}
+---output
+{
+  "config": {
+    "host": "localhost",
+    "port": 8080,
+    "options": {
+      "debug": true,
+      "timeout": 30
+    }
+  }
+}
+---
+Table keys can be bracketed strings like ["host"], bracketed integers
+like [1], or even bracketed booleans and floats. Regardless of the
+original key type in Lua, all keys become strings in JSON since that
+is all JSON supports. The nesting depth is unlimited (well, aside
+from your available memory).
+
+This is common in SavedVariables files where addons store deeply nested
+configuration and state data.

@@ -1,0 +1,40 @@
+Multiple Variables
+---
+Lua data files often contain multiple top-level variable assignments.
+Each one becomes a key in the resulting JSON object.
+---lua
+playerName = "Jaina"
+playerLevel = 60
+isOnline = true
+---go
+package main
+
+import (
+    "fmt"
+    "io"
+
+    "github.com/mmobeus/luadata"
+)
+
+func main() {
+    input := `playerName = "Jaina"
+playerLevel = 60
+isOnline = true`
+
+    reader, err := luadata.TextToJSON("input", input)
+    if err != nil {
+        panic(err)
+    }
+    result, _ := io.ReadAll(reader)
+    fmt.Println(string(result))
+}
+---output
+{
+  "playerName": "Jaina",
+  "playerLevel": 60,
+  "isOnline": true
+}
+---
+The order of keys in the JSON output matches the order of assignments
+in the Lua file. luadata preserves insertion order rather than
+alphabetizing keys.

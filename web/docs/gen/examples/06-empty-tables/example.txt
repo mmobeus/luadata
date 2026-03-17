@@ -1,0 +1,28 @@
+Empty Tables
+---
+Lua has a single table type that serves as both arrays and objects.
+This creates an ambiguity when converting to JSON: an empty Lua table
+{} could be either a JSON array [] or a JSON object {}.
+---lua
+inventory = {}
+settings = {}
+---
+By default, luadata renders empty tables as null. This is a safe
+default since it doesn't assert a type that might be wrong.
+---output
+{
+  "inventory": null,
+  "settings": null
+}
+---
+But sometimes you know the intended type. Maybe inventory should be an
+empty array, or settings should be an empty object. The WithEmptyTableMode
+option lets you control this behavior.
+
+Note that the chosen mode applies to all empty tables in the output.
+There is currently no way to treat different keys differently. In a
+future version, we may support options scoped by key patterns and
+eventually mapping to a known schema, removing the need for these
+heuristics entirely.
+
+The next example shows all available modes.

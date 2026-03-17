@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luadata by Example: {{.Title}}</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+</head>
+<body data-options="{{.Options}}">
+    <div class="header">
+        <a href="index.html">Luadata by Example</a>
+        <h1>{{.Title}}</h1>
+    </div>
+
+    {{range .Rows}}
+    <div class="row{{if .FullWidth}} row-full{{end}}">
+        {{if .HasLeft}}
+        <div class="col-prose">
+            {{range .Left}}
+            {{range $line := split .Body}}
+            <p>{{$line}}</p>
+            {{end}}
+            {{end}}
+        </div>
+        {{end}}
+        {{if .HasRight}}
+        <div class="col-code">
+            {{range .Right}}
+            {{if eq .Type "output"}}
+            <div class="output-block">
+                <div class="output-label">output</div>
+                {{if looksLikeJSON .Body}}<pre><code class="language-json">{{.Body}}</code></pre>
+                {{else}}<pre>{{.Body}}</pre>
+                {{end}}
+            </div>
+            {{else if eq .Type "lua"}}
+            <div class="code-block code-block-lua">
+                <span class="lang-badge">lua</span>
+                <pre><code class="language-lua">{{.Body}}</code></pre>
+            </div>
+            {{else}}
+            <div class="code-block">
+                <span class="lang-badge">{{.Type}}</span>
+                <pre><code class="{{hlClass .Type}}">{{.Body}}</code></pre>
+            </div>
+            {{end}}
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+
+    <p class="try-converter">Want more flexibility? <a href="../index.html">Open the interactive converter</a> to try any Lua input with all available options.</p>
+
+    <div class="nav">
+        {{if .Prev}}<a href="{{.Prev.Slug}}.html">&larr; {{.Prev.Title}}</a>{{end}}
+        {{if .Next}}<a class="next" href="{{.Next.Slug}}.html">{{.Next.Title}} &rarr;</a>{{end}}
+    </div>
+
+    <div class="footer">
+        <a href="index.html">Index</a> | <a href="../index.html">Converter Tool</a> | <a href="https://github.com/mmobeus/luadata">GitHub</a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/lua.min.js"></script>
+    <script>hljs.highlightAll();</script>
+    <script src="../wasm_exec.js"></script>
+    <script type="module" src="interactive.js"></script>
+</body>
+</html>

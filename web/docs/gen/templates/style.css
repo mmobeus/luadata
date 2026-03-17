@@ -1,0 +1,264 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #333;
+    line-height: 1.6;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.tool-name {
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+h1 { margin-bottom: 0.5rem; font-size: 1.75rem; }
+h2 { margin: 1.5rem 0 0.5rem; font-size: 1.1rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.subtitle { color: #666; margin-bottom: 2rem; }
+
+/* Index page */
+.index-body { max-width: 760px; }
+.example-list { list-style: none; padding: 0; margin-bottom: 1.5rem; }
+.example-list li { padding: 0.3rem 0; }
+.example-list a { font-size: 1.05rem; }
+
+/* Example page header */
+.header { margin-bottom: 1.5rem; }
+.header a { color: #666; font-size: 0.9rem; }
+.header h1 { margin-top: 0.25rem; }
+
+/* Two-column row layout */
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 0.5rem;
+    align-items: start;
+}
+
+.row-full {
+    grid-template-columns: 1fr;
+}
+
+.col-prose {
+    padding-top: 0.5rem;
+}
+
+.col-prose p {
+    margin: 0.5rem 0;
+    line-height: 1.7;
+}
+
+.col-code {
+    min-width: 0; /* prevent code overflow from breaking grid */
+}
+
+/* Code blocks */
+.code-block {
+    position: relative;
+    margin-bottom: 0.75rem;
+}
+
+.code-block .lang-badge {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.5rem;
+    font-size: 0.7rem;
+    font-family: system-ui, sans-serif;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    z-index: 1;
+}
+
+.code-block pre {
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.code-block pre code {
+    display: block;
+    padding: 0.75rem;
+    padding-right: 3rem;
+}
+
+.code-block pre code.hljs {
+    background: transparent;
+}
+
+/* Output blocks */
+.output-block {
+    margin-bottom: 0.75rem;
+}
+
+.output-block pre {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #2a2a4e;
+    border-radius: 6px;
+    padding: 0;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.output-block pre:not(:has(code)) {
+    padding: 0.75rem;
+}
+
+.output-block pre code {
+    display: block;
+    padding: 0.75rem;
+}
+
+.output-block pre code.hljs {
+    background: transparent;
+}
+
+/* Dark-friendly highlight.js token overrides for output blocks */
+.output-block .hljs-attr { color: #7ec8e3; }
+.output-block .hljs-string { color: #a8d89f; }
+.output-block .hljs-number { color: #d4a0e0; }
+.output-block .hljs-literal { color: #e0a070; }
+.output-block .hljs-punctuation { color: #c0c0c0; }
+
+.output-block .output-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+/* Interactive elements */
+.interactive-toolbar {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+.interactive-toolbar button {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    font-family: system-ui, sans-serif;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #fff;
+    color: #333;
+}
+
+.interactive-toolbar .run-btn {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+
+.interactive-toolbar .run-btn:hover {
+    background: #1d4ed8;
+}
+
+.interactive-toolbar .reset-btn:hover {
+    background: #f5f5f5;
+}
+
+.lua-editor {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem;
+    padding-right: 3rem;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    background: #f5f5f5;
+    border: 2px solid #2563eb;
+    border-radius: 6px;
+    resize: vertical;
+    tab-size: 4;
+    color: #333;
+}
+
+.lua-editor:focus {
+    outline: none;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.code-block-lua pre {
+    transition: border-color 0.15s;
+}
+
+.code-block-lua pre:hover {
+    border-color: #2563eb;
+}
+
+.output-error {
+    color: #f87171;
+}
+
+.try-converter {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: #f0f7ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #1e40af;
+}
+
+.try-converter a {
+    font-weight: 600;
+}
+
+/* Navigation */
+.nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.nav a {
+    font-size: 0.95rem;
+}
+
+.nav .next { margin-left: auto; }
+
+/* Footer */
+.footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+    font-size: 0.85rem;
+    color: #999;
+}
+
+.footer a { color: #999; }
+.footer a:hover { color: #666; }
+
+/* Responsive: collapse to single column on narrow screens */
+@media (max-width: 768px) {
+    body { padding: 1rem; }
+    h1 { font-size: 1.4rem; }
+    .row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    .col-prose { padding-top: 0; }
+    .code-block pre, .output-block pre { font-size: 0.75rem; }
+}

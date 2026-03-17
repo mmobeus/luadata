@@ -1,0 +1,66 @@
+Empty Table Modes
+---options
+{"emptyTable":"array"}
+---
+The WithEmptyTableMode option controls how empty Lua tables are rendered
+in JSON. There are four modes to choose from.
+
+Given this input:
+---lua
+data = {}
+---
+EmptyTableNull (default) renders as null:
+---json
+{
+  "data": null
+}
+---
+EmptyTableOmit removes the key entirely:
+---json
+{}
+---
+EmptyTableArray renders as an empty JSON array:
+---json
+{
+  "data": []
+}
+---
+EmptyTableObject renders as an empty JSON object:
+---json
+{
+  "data": {}
+}
+---go
+package main
+
+import (
+    "fmt"
+    "io"
+
+    "github.com/mmobeus/luadata"
+)
+
+func main() {
+    input := `data = {}`
+
+    reader, err := luadata.TextToJSON("input", input,
+        luadata.WithEmptyTableMode(luadata.EmptyTableArray),
+    )
+    if err != nil {
+        panic(err)
+    }
+    result, _ := io.ReadAll(reader)
+    fmt.Println(string(result))
+}
+---output
+{
+  "data": []
+}
+---
+From the CLI, use the --empty-table flag:
+---bash
+echo 'data = {}' | luadata tojson --empty-table=object -
+---output
+{
+  "data": {}
+}
