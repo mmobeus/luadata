@@ -1,0 +1,22 @@
+Comments
+---
+Lua supports two kinds of comments. Both are stripped during parsing and
+do not appear in the JSON output.
+---lua
+-- This is a line comment
+playerName = "Sylvanas"
+
+--[[ This is a
+     block comment ]]
+playerLevel = 60
+---output
+{
+  "playerName": "Sylvanas",
+  "playerLevel": 60
+}
+---
+Line comments start with -- and continue to the end of the line.
+
+Block comments start with --[[ and end with ]]. They can span multiple
+lines. Some tools generate block comments with extra padding characters
+like --[=[ ... ]=] — luadata handles these as well.

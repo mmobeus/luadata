@@ -1,0 +1,67 @@
+Array Mode: Sparse
+---
+ArrayModeSparse is the default mode. It renders tables with integer keys
+as JSON arrays when the gaps between consecutive keys don't exceed a
+configurable threshold. Missing indices are filled with null.
+---lua
+contiguous = {
+    [1] = "a",
+    [2] = "b",
+    [3] = "c",
+}
+sparse = {
+    [1] = "first",
+    [5] = "fifth",
+    [6] = "sixth",
+}
+---
+With the default MaxGap of 20, both tables become arrays. Gaps are
+filled with null:
+---output
+{
+  "contiguous": [
+    "a",
+    "b",
+    "c"
+  ],
+  "sparse": [
+    "first",
+    null,
+    null,
+    null,
+    "fifth",
+    "sixth"
+  ]
+}
+---
+The MaxGap setting controls how sparse a table can be before it falls
+back to a JSON object. A MaxGap of 0 means only contiguous keys starting
+at 1 are allowed.
+---go
+// MaxGap of 2: gaps up to 2 positions are allowed
+reader, err := luadata.TextToJSON("input", input,
+    luadata.WithArrayDetection(luadata.ArrayModeSparse{MaxGap: 2}),
+)
+---
+With MaxGap of 2, the sparse table (which has a gap of 3 between keys
+1 and 5) would fall back to an object:
+---output
+{
+  "contiguous": [
+    "a",
+    "b",
+    "c"
+  ],
+  "sparse": {
+    "1": "first",
+    "5": "fifth",
+    "6": "sixth"
+  }
+}
+---
+Implicit index tables like {"a","b"} are always rendered as arrays
+regardless of MaxGap.
+
+From the CLI:
+---bash
+luadata tojson --array-mode=sparse --array-max-gap=5 input.lua
