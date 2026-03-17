@@ -26,8 +26,11 @@ function setupBlock(block) {
     const original = codeEl.textContent;
 
     // Find the nearest following output block — skip if none found
+    // or if the output isn't JSON (e.g. raw text from a Go program)
     const outputBlock = findOutputBlock(block);
     if (!outputBlock) return;
+    const outputText = outputBlock.querySelector("pre").textContent.trim();
+    if (!outputText.startsWith("{") && !outputText.startsWith("[")) return;
     const originalOutput = outputBlock.querySelector("pre").innerHTML;
 
     // Add interactive toolbar
@@ -140,14 +143,29 @@ function setupBlock(block) {
 }
 
 function findOutputBlock(block) {
-    // Walk forward through all siblings to find the first output block.
-    // Skip over prose, other code blocks, etc. Stop if we hit another
-    // Lua code block (that would be a separate interactive example).
+    // First check siblings within the same .col-code container
     let el = block.nextElementSibling;
     while (el) {
         if (el.classList.contains("output-block")) return el;
         if (el.classList.contains("code-block-lua")) return null;
         el = el.nextElementSibling;
+    }
+
+    // If not found in the same column, walk forward through subsequent
+    // .row elements to find the first output block
+    let row = block.closest(".row");
+    if (!row) return null;
+    let nextRow = row.nextElementSibling;
+    while (nextRow) {
+        if (!nextRow.classList.contains("row")) {
+            nextRow = nextRow.nextElementSibling;
+            continue;
+        }
+        // Stop if this row has another Lua block
+        if (nextRow.querySelector(".code-block-lua")) return null;
+        const output = nextRow.querySelector(".output-block");
+        if (output) return output;
+        nextRow = nextRow.nextElementSibling;
     }
     return null;
 }

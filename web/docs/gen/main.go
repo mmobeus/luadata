@@ -25,6 +25,51 @@ type Example struct {
 	Next     *Example
 }
 
+// Row pairs prose (left column) with code/output (right column) for the
+// two-column layout. Rows with only one side set render full-width.
+type Row struct {
+	Left  []Section // prose sections
+	Right []Section // code/output sections
+}
+
+func (r Row) HasLeft() bool  { return len(r.Left) > 0 }
+func (r Row) HasRight() bool { return len(r.Right) > 0 }
+func (r Row) FullWidth() bool {
+	// Only code-only rows (no prose) go full-width.
+	// Prose-only rows stay in the left column.
+	return len(r.Left) == 0 && len(r.Right) > 0
+}
+
+// Rows pairs an example's sections into two-column rows. Prose sections go
+// left, code/output sections go right. A new row starts each time prose
+// appears after code/output content.
+func (ex *Example) Rows() []Row {
+	var rows []Row
+	var left, right []Section
+
+	flush := func() {
+		if len(left) > 0 || len(right) > 0 {
+			rows = append(rows, Row{Left: left, Right: right})
+			left = nil
+			right = nil
+		}
+	}
+
+	for _, s := range ex.Sections {
+		if s.Type == "prose" {
+			// New prose after code/output starts a new row
+			if len(right) > 0 {
+				flush()
+			}
+			left = append(left, s)
+		} else {
+			right = append(right, s)
+		}
+	}
+	flush()
+	return rows
+}
+
 type IndexGroup struct {
 	Name     string
 	Examples []*Example
@@ -69,7 +114,7 @@ func parseExample(path string) (*Example, error) {
 	var currentLines []string
 
 	flush := func() {
-		if currentType == "" {
+		if currentType == "" || currentType == "options" {
 			return
 		}
 		body := strings.Join(currentLines, "\n")

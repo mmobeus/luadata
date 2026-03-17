@@ -505,8 +505,8 @@ func ParseText(name, text string, opts ...Option) (KeyValuePairs, error) {
 				end = len(lex.input)
 			}
 
-			return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, position %d, next %q: %w",
-				name, lex.line, lex.pos, lex.input[lex.start:end], err)
+			return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, col %d, next %q: %w",
+				name, lex.line, lex.col(), lex.input[lex.start:end], err)
 		}
 
 		if lex.peek() == eof {
@@ -539,8 +539,8 @@ func ParseText(name, text string, opts ...Option) (KeyValuePairs, error) {
 					if end > len(lex.input) {
 						end = len(lex.input)
 					}
-					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, position %d, next %q: %w",
-						name, lex.line, lex.pos, lex.input[lex.start:end], err)
+					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, col %d, next %q: %w",
+						name, lex.line, lex.col(), lex.input[lex.start:end], err)
 				}
 				kvPairs.orderedPairs = append(kvPairs.orderedPairs, kvPair)
 
@@ -550,8 +550,8 @@ func ParseText(name, text string, opts ...Option) (KeyValuePairs, error) {
 					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: %w", name, err)
 				}
 				if lex.peek() != eof {
-					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: unexpected content after raw value at line %d, position %d",
-						name, lex.line, lex.pos)
+					return KeyValuePairs{}, fmt.Errorf("parse failure in %s: unexpected content after raw value at line %d, col %d",
+						name, lex.line, lex.col())
 				}
 				break
 			}
@@ -564,8 +564,8 @@ func ParseText(name, text string, opts ...Option) (KeyValuePairs, error) {
 				end = len(lex.input)
 			}
 
-			return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, position %d, next %q: %w",
-				name, lex.line, lex.pos, lex.input[lex.start:end], err)
+			return KeyValuePairs{}, fmt.Errorf("parse failure in %s: line %d, col %d, next %q: %w",
+				name, lex.line, lex.col(), lex.input[lex.start:end], err)
 		}
 
 		kvPairs.orderedPairs = append(kvPairs.orderedPairs, kvPair)
@@ -631,6 +631,7 @@ type lexer struct {
 func newLexer(name, input string, config *parseConfig) *lexer {
 	l := &lexer{
 		input:  input,
+		line:   1,
 		config: config,
 	}
 	return l
@@ -660,6 +661,15 @@ func (l *lexer) PeekString() string {
 	}
 
 	return l.input[l.start:end]
+}
+
+// col returns the 1-based column offset within the current line.
+func (l *lexer) col() int {
+	lineStart := strings.LastIndex(l.input[:l.pos], "\n")
+	if lineStart == -1 {
+		return l.pos + 1
+	}
+	return l.pos - lineStart
 }
 
 func (l *lexer) peek() rune {

@@ -13,31 +13,42 @@
         <h1>{{.Title}}</h1>
     </div>
 
-    {{range .Sections}}
-    {{if eq .Type "prose"}}
-    <div class="section">
-        {{range $line := split .Body}}
-        <p>{{$line}}</p>
+    {{range .Rows}}
+    <div class="row{{if .FullWidth}} row-full{{end}}">
+        {{if .HasLeft}}
+        <div class="col-prose">
+            {{range .Left}}
+            {{range $line := split .Body}}
+            <p>{{$line}}</p>
+            {{end}}
+            {{end}}
+        </div>
+        {{end}}
+        {{if .HasRight}}
+        <div class="col-code">
+            {{range .Right}}
+            {{if eq .Type "output"}}
+            <div class="output-block">
+                <div class="output-label">output</div>
+                {{if looksLikeJSON .Body}}<pre><code class="language-json">{{.Body}}</code></pre>
+                {{else}}<pre>{{.Body}}</pre>
+                {{end}}
+            </div>
+            {{else if eq .Type "lua"}}
+            <div class="code-block code-block-lua">
+                <span class="lang-badge">lua</span>
+                <pre><code class="language-lua">{{.Body}}</code></pre>
+            </div>
+            {{else}}
+            <div class="code-block">
+                <span class="lang-badge">{{.Type}}</span>
+                <pre><code class="{{hlClass .Type}}">{{.Body}}</code></pre>
+            </div>
+            {{end}}
+            {{end}}
+        </div>
         {{end}}
     </div>
-    {{else if eq .Type "output"}}
-    <div class="output-block">
-        <div class="output-label">output</div>
-        {{if looksLikeJSON .Body}}<pre><code class="language-json">{{.Body}}</code></pre>
-        {{else}}<pre>{{.Body}}</pre>
-        {{end}}
-    </div>
-    {{else if eq .Type "lua"}}
-    <div class="code-block code-block-lua">
-        <span class="lang-badge">lua</span>
-        <pre><code class="language-lua">{{.Body}}</code></pre>
-    </div>
-    {{else}}
-    <div class="code-block">
-        <span class="lang-badge">{{.Type}}</span>
-        <pre><code class="{{hlClass .Type}}">{{.Body}}</code></pre>
-    </div>
-    {{end}}
     {{end}}
 
     <p class="try-converter">Want more flexibility? <a href="../index.html">Open the interactive converter</a> to try any Lua input with all available options.</p>
