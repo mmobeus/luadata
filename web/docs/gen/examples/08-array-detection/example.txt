@@ -29,5 +29,10 @@ as JSON arrays:
   ]
 }
 ---
-The WithArrayDetection option gives you control over this behavior. The
-next three examples cover each array mode in detail.
+The WithArrayDetection option gives you control over this behavior.
+Like the other options, the chosen array mode applies to all tables
+in the output. In a future version, we may support options scoped by
+key patterns and eventually mapping to a known schema, removing the
+need for these heuristics entirely.
+
+The next three examples cover each array mode in detail.
