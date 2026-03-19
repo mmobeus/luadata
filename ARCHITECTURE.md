@@ -60,6 +60,11 @@ luadata/
 │   └── tests/              pytest suite
 ├── wasm/                   wasm-bindgen module
 │   └── src/lib.rs          convertLuaDataToJson (JS name)
+├── npm/                    npm package (mmobeus-luadata)
+│   ├── package.json        Package metadata
+│   ├── index.js            ES module wrapper: init() + convert()
+│   ├── index.d.ts          TypeScript type definitions
+│   └── wasm/               (built at release time, gitignored)
 ├── go/                     Pure Go wrapper (no CGO)
 │   ├── luadata.go          Public API: TextToJSON, FileToJSON, etc.
 │   ├── options.go          Functional options: WithArrayMode, etc.
@@ -110,8 +115,16 @@ gitignored — local development uses `make build-clib` to populate it, or sets
    generates platform-specific `go:embed` files (replacing `embed_dev.go`), and
    commits everything to the `release` branch with the final version tag.
 
-5. **GitHub Release**: CI creates a GitHub Release with CLI binaries and Python
-   wheels as downloadable artifacts.
+5. **GitHub Release**: CI creates a GitHub Release with shared library artifacts.
+
+6. **Publish to registries**: After the release succeeds, three publish jobs run
+   in parallel — all using OIDC trusted publishing (no stored secrets):
+   - **PyPI**: Builds platform-specific wheels (same five platforms as clib) plus
+     an sdist, then publishes `mmobeus-luadata` via `pypa/gh-action-pypi-publish`.
+   - **npm**: Builds the WASM module with wasm-pack, packages it with the JS/TS
+     wrapper from `npm/`, and publishes `mmobeus-luadata`.
+   - **crates.io**: Publishes the `luadata` core crate via
+     `rust-lang/crates-io-auth-action` for OIDC token exchange.
 
 ### Go consumer model
 
