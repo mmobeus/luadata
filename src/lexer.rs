@@ -1,6 +1,6 @@
 use crate::options::ParseConfig;
 
-const EOF: char = '\0';
+const EOF: u8 = 0;
 
 #[derive(Debug, Clone)]
 pub struct LexerState {
@@ -12,10 +12,10 @@ pub struct LexerState {
 }
 
 pub struct Lexer {
-    pub input: Vec<char>,
+    pub input: Vec<u8>,
     pub start: usize,
     pub pos: usize,
-    /// true if the last next_rune actually advanced; false after EOF or backup.
+    /// true if the last next_byte actually advanced; false after EOF or backup.
     width: bool,
     pub line: usize,
     pub num_values: usize,
@@ -23,9 +23,9 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(input: &str, config: ParseConfig) -> Self {
+    pub fn new(input: &[u8], config: ParseConfig) -> Self {
         Lexer {
-            input: input.chars().collect(),
+            input: input.to_vec(),
             start: 0,
             pos: 0,
             width: false,
@@ -53,21 +53,21 @@ impl Lexer {
         self.num_values = state.num_values;
     }
 
-    pub fn next_rune(&mut self) -> char {
+    pub fn next_byte(&mut self) -> u8 {
         if self.pos >= self.input.len() {
             self.width = false;
             return EOF;
         }
-        let r = self.input[self.pos];
+        let b = self.input[self.pos];
         self.pos += 1;
         self.width = true;
-        if r == '\n' {
+        if b == b'\n' {
             self.line += 1;
         }
-        r
+        b
     }
 
-    pub fn peek(&self) -> char {
+    pub fn peek(&self) -> u8 {
         if self.pos >= self.input.len() {
             EOF
         } else {
@@ -80,8 +80,8 @@ impl Lexer {
             return;
         }
         self.pos -= 1;
-        self.width = true; // still valid to backup further (like Go's behavior)
-        if self.input[self.pos] == '\n' {
+        self.width = true;
+        if self.input[self.pos] == b'\n' {
             self.line -= 1;
         }
     }
@@ -90,26 +90,38 @@ impl Lexer {
         self.start = self.pos;
     }
 
+    /// Take the current span as a String. Each byte is mapped to its Latin-1
+    /// code point, giving a 1:1 byte-to-char mapping.
     pub fn take(&mut self) -> String {
-        let val: String = self.input[self.start..self.pos].iter().collect();
+        let val: String = self.input[self.start..self.pos]
+            .iter()
+            .map(|&b| b as char)
+            .collect();
         self.start = self.pos;
         val
     }
 
-    pub fn accept(&mut self, valid: &str) -> bool {
-        let r = self.next_rune();
-        if r != EOF && valid.contains(r) {
+    /// Take the current span as raw bytes.
+    pub fn take_bytes(&mut self) -> Vec<u8> {
+        let val = self.input[self.start..self.pos].to_vec();
+        self.start = self.pos;
+        val
+    }
+
+    pub fn accept(&mut self, valid: &[u8]) -> bool {
+        let b = self.next_byte();
+        if b != EOF && valid.contains(&b) {
             return true;
         }
         self.backup();
         false
     }
 
-    pub fn accept_until(&mut self, target: char) {
+    pub fn accept_until(&mut self, target: u8) {
         loop {
-            let r = self.next_rune();
-            if r == target || r == EOF {
-                if r != EOF {
+            let b = self.next_byte();
+            if b == target || b == EOF {
+                if b != EOF {
                     self.backup();
                 }
                 return;
@@ -117,18 +129,18 @@ impl Lexer {
         }
     }
 
-    pub fn accept_run(&mut self, valid: &str) {
+    pub fn accept_run(&mut self, valid: &[u8]) {
         loop {
-            let r = self.next_rune();
-            if r == EOF || !valid.contains(r) {
+            let b = self.next_byte();
+            if b == EOF || !valid.contains(&b) {
                 self.backup();
                 return;
             }
         }
     }
 
-    pub fn skip_space_runes(&mut self) {
-        while is_space(self.next_rune()) {}
+    pub fn skip_space_bytes(&mut self) {
+        while is_space(self.next_byte()) {}
         self.backup();
     }
 
@@ -136,7 +148,7 @@ impl Lexer {
     pub fn col(&self) -> usize {
         let mut line_start = 0;
         for i in (0..self.pos).rev() {
-            if self.input[i] == '\n' {
+            if self.input[i] == b'\n' {
                 line_start = i + 1;
                 break;
             }
@@ -146,7 +158,10 @@ impl Lexer {
 
     pub fn peek_string(&self) -> String {
         let end = (self.start + 10).min(self.input.len());
-        self.input[self.start..end].iter().collect()
+        self.input[self.start..end]
+            .iter()
+            .map(|&b| b as char)
+            .collect()
     }
 
     /// Skip whitespace and comments, then ignore buffered content.
@@ -158,35 +173,36 @@ impl Lexer {
 
     /// Accept whitespace and comments (recursive for line comments).
     pub fn accept_whitespace(&mut self) -> Result<(), String> {
-        self.skip_space_runes();
+        self.skip_space_bytes();
 
-        if self.peek() == '-' {
-            self.next_rune();
-            if self.peek() != '-' {
+        if self.peek() == b'-' {
+            self.next_byte();
+            if self.peek() != b'-' {
                 self.backup();
             } else {
-                self.next_rune(); // consume second '-'
+                self.next_byte(); // consume second '-'
 
                 // Check for block comment: --[[ ... ]]
                 let mut skipped_block_comment = false;
-                if self.peek() == '[' {
-                    self.next_rune(); // consume '['
-                    let mut pattern = String::from("]");
-                    while self.next_rune() == '#' {
-                        pattern.push('#');
+                if self.peek() == b'[' {
+                    self.next_byte(); // consume '['
+                    let mut pattern = vec![b']'];
+                    while self.next_byte() == b'#' {
+                        pattern.push(b'#');
                     }
                     self.backup();
 
-                    if self.peek() == '[' {
+                    if self.peek() == b'[' {
                         // Block comment
-                        pattern.push(']');
+                        pattern.push(b']');
                         let found = self.accept_through_pattern(&pattern);
                         if found {
                             skipped_block_comment = true;
                         } else {
+                            let pat_str: String = pattern.iter().map(|&b| b as char).collect();
                             return Err(format!(
                                 "multiline string not properly closed, looking for {:?}",
-                                pattern
+                                pat_str
                             ));
                         }
                     } else {
@@ -199,7 +215,7 @@ impl Lexer {
 
                 if !skipped_block_comment {
                     // Line comment: skip until newline
-                    self.accept_until('\n');
+                    self.accept_until(b'\n');
                     self.accept_whitespace()?;
                 }
             }
@@ -208,24 +224,23 @@ impl Lexer {
         Ok(())
     }
 
-    fn accept_through_pattern(&mut self, pattern: &str) -> bool {
+    fn accept_through_pattern(&mut self, pattern: &[u8]) -> bool {
         if pattern.is_empty() {
             return true;
         }
 
-        let pattern_chars: Vec<char> = pattern.chars().collect();
-        let first_rune = pattern_chars[0];
+        let first_byte = pattern[0];
 
-        self.accept_until(first_rune);
+        self.accept_until(first_byte);
 
         let mut found_mismatch = false;
-        for &pc in &pattern_chars {
-            let nr = self.next_rune();
-            if nr == EOF {
+        for &pb in pattern {
+            let nb = self.next_byte();
+            if nb == EOF {
                 found_mismatch = true;
                 break;
             }
-            if nr != pc {
+            if nb != pb {
                 found_mismatch = true;
                 break;
             }
@@ -235,10 +250,20 @@ impl Lexer {
     }
 }
 
-fn is_space(r: char) -> bool {
-    r == ' ' || r == '\t' || r == '\r' || r == '\n'
+fn is_space(b: u8) -> bool {
+    b == b' ' || b == b'\t' || b == b'\r' || b == b'\n'
 }
 
-pub fn is_alpha_numeric(r: char) -> bool {
-    r == '_' || r.is_alphabetic() || r.is_ascii_digit()
+pub fn is_alpha_numeric(b: u8) -> bool {
+    b == b'_' || b.is_ascii_alphabetic() || b.is_ascii_digit()
+}
+
+/// Decode raw bytes into a String. If the bytes are valid UTF-8, decode as
+/// UTF-8 (so "Fröst" renders correctly). Otherwise, map each byte to its
+/// Latin-1 code point (so binary blobs are preserved losslessly).
+pub fn bytes_to_string(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(s) => s.to_string(),
+        Err(_) => bytes.iter().map(|&b| b as char).collect(),
+    }
 }

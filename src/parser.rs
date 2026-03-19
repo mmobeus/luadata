@@ -1,12 +1,17 @@
-use crate::lexer::{Lexer, is_alpha_numeric};
+use crate::lexer::{Lexer, bytes_to_string, is_alpha_numeric};
 use crate::options::ParseConfig;
 use crate::types::*;
 
-const EOF: char = '\0';
+const EOF: u8 = 0;
 
 /// Parse Lua data from a string. Returns structured key-value pairs.
 pub fn parse_text(name: &str, text: &str, config: ParseConfig) -> Result<KeyValuePairs, String> {
-    let mut lex = Lexer::new(text, config);
+    parse_bytes(name, text.as_bytes(), config)
+}
+
+/// Parse Lua data from raw bytes. Returns structured key-value pairs.
+pub fn parse_bytes(name: &str, input: &[u8], config: ParseConfig) -> Result<KeyValuePairs, String> {
+    let mut lex = Lexer::new(input, config);
     let mut kvps = KeyValuePairs::new();
 
     let mut first_iteration = true;
@@ -28,16 +33,16 @@ pub fn parse_text(name: &str, text: &str, config: ParseConfig) -> Result<KeyValu
 
         if first_iteration {
             first_iteration = false;
-            let r = lex.peek();
+            let b = lex.peek();
 
-            let is_raw_value = if !r.is_alphabetic() && r != '_' {
+            let is_raw_value = if !b.is_ascii_alphabetic() && b != b'_' {
                 true
             } else {
                 // Could be identifier=value OR a bare keyword (true/false/nil)
                 let saved = lex.save();
                 let _ = read_lua_identifier(&mut lex);
-                lex.skip_space_runes();
-                let is_raw = lex.peek() != '=';
+                lex.skip_space_bytes();
+                let is_raw = lex.peek() != b'=';
                 lex.restore(saved);
                 is_raw
             };
@@ -103,7 +108,7 @@ fn read_saved_variable(lex: &mut Lexer) -> Result<KeyValuePair, String> {
     let ident = read_lua_identifier(lex)?;
     lex.skip_white_space()?;
 
-    if lex.next_rune() != '=' {
+    if lex.next_byte() != b'=' {
         return Err("expected '=' after identifier".to_string());
     }
 
@@ -125,7 +130,7 @@ fn read_lua_identifier(lex: &mut Lexer) -> Result<String, String> {
         return Err("expected identifier, but got a number".to_string());
     }
 
-    while is_alpha_numeric(lex.next_rune()) {}
+    while is_alpha_numeric(lex.next_byte()) {}
     lex.backup();
 
     let ident = lex.take();
@@ -137,11 +142,11 @@ fn read_lua_identifier(lex: &mut Lexer) -> Result<String, String> {
 }
 
 fn read_lua_value(lex: &mut Lexer) -> Result<Value, String> {
-    let r = lex.peek();
-    let result = match r {
-        '{' => read_lua_table(lex),
-        '"' => read_quoted_string_value(lex),
-        r if r.is_ascii_digit() || r == '-' => read_number_value(lex),
+    let b = lex.peek();
+    let result = match b {
+        b'{' => read_lua_table(lex),
+        b'"' => read_quoted_string_value(lex),
+        b if b.is_ascii_digit() || b == b'-' => read_number_value(lex),
         _ => {
             let value = read_lua_identifier(lex)?;
             match value.as_str() {
@@ -175,11 +180,11 @@ fn read_lua_value(lex: &mut Lexer) -> Result<Value, String> {
 }
 
 fn read_lua_table(lex: &mut Lexer) -> Result<Value, String> {
-    if !lex.accept("{") {
+    if !lex.accept(b"{") {
         return Err("expected '{'".to_string());
     }
 
-    if lex.accept("}") {
+    if lex.accept(b"}") {
         lex.ignore();
         return Ok(Value {
             value_type: ValueType::Empty,
@@ -194,7 +199,7 @@ fn read_lua_table(lex: &mut Lexer) -> Result<Value, String> {
     loop {
         lex.skip_white_space()?;
 
-        if lex.accept("}") {
+        if lex.accept(b"}") {
             lex.skip_white_space()?;
             return Ok(Value {
                 value_type: ValueType::Table,
@@ -204,12 +209,12 @@ fn read_lua_table(lex: &mut Lexer) -> Result<Value, String> {
             });
         }
 
-        let r = lex.peek();
+        let b = lex.peek();
 
-        let key = if r == '[' {
+        let key = if b == b'[' {
             let k = read_lua_table_key(lex)?;
             lex.skip_white_space()?;
-            if !lex.accept("=") {
+            if !lex.accept(b"=") {
                 return Err("expected '='".to_string());
             }
             lex.skip_white_space()?;
@@ -230,12 +235,12 @@ fn read_lua_table(lex: &mut Lexer) -> Result<Value, String> {
 
         lex.skip_white_space()?;
 
-        let r = lex.peek();
-        match r {
-            ',' => {
-                lex.accept(",");
+        let b = lex.peek();
+        match b {
+            b',' => {
+                lex.accept(b",");
             }
-            '}' => {
+            b'}' => {
                 // continue — allows no trailing comma
             }
             _ => {
@@ -246,7 +251,7 @@ fn read_lua_table(lex: &mut Lexer) -> Result<Value, String> {
 }
 
 fn read_lua_table_key(lex: &mut Lexer) -> Result<Key, String> {
-    if !lex.accept("[") {
+    if !lex.accept(b"[") {
         return Err("expected '['".to_string());
     }
 
@@ -254,7 +259,7 @@ fn read_lua_table_key(lex: &mut Lexer) -> Result<Key, String> {
     let val = read_lua_value(lex)?;
     lex.skip_white_space()?;
 
-    if !lex.accept("]") {
+    if !lex.accept(b"]") {
         return Err("expected ']'".to_string());
     }
 
@@ -301,28 +306,29 @@ fn read_lua_table_key(lex: &mut Lexer) -> Result<Key, String> {
 }
 
 fn read_quoted_string_value(lex: &mut Lexer) -> Result<Value, String> {
-    if !lex.accept("\"") {
+    if !lex.accept(b"\"") {
         return Err("expected '\"'".to_string());
     }
 
     loop {
-        match lex.next_rune() {
-            '\\' => {
+        match lex.next_byte() {
+            b'\\' => {
                 let curr = lex.pos;
-                lex.accept_run("\\");
+                lex.accept_run(b"\\");
                 let num_escapes = (lex.pos - curr) + 1;
 
-                if !num_escapes.is_multiple_of(2) && lex.peek() == '"' {
-                    let _ = lex.next_rune();
+                if !num_escapes.is_multiple_of(2) && lex.peek() == b'"' {
+                    let _ = lex.next_byte();
                 }
             }
-            EOF | '\n' => {
+            EOF | b'\n' => {
                 return Err("unterminated quoted string".to_string());
             }
-            '"' => {
-                let quoted_val = lex.take();
-                let decoded = decode_lua_string(&quoted_val);
-                let (val, was_transformed) = lex.config.transform_string(&decoded);
+            b'"' => {
+                let raw_bytes = lex.take_bytes();
+                let decoded = decode_lua_string_bytes(&raw_bytes);
+                let decoded_str = bytes_to_string(&decoded);
+                let (val, was_transformed) = lex.config.transform_string(&decoded_str);
 
                 return Ok(Value {
                     value_type: ValueType::String,
@@ -336,67 +342,67 @@ fn read_quoted_string_value(lex: &mut Lexer) -> Result<Value, String> {
     }
 }
 
-/// Decode a Lua quoted string (with surrounding quotes removed internally).
+/// Decode a Lua quoted string from raw bytes (with surrounding quotes).
 /// Handles escape sequences like \n, \t, \\, \", etc.
-fn decode_lua_string(quoted: &str) -> String {
+/// Returns raw bytes — the caller decides the encoding.
+fn decode_lua_string_bytes(quoted: &[u8]) -> Vec<u8> {
     // Remove surrounding quotes
     if quoted.len() < 2 {
-        return String::new();
+        return Vec::new();
     }
     let inner = &quoted[1..quoted.len() - 1];
 
-    let mut result = String::with_capacity(inner.len());
-    let chars: Vec<char> = inner.chars().collect();
+    let mut result = Vec::with_capacity(inner.len());
     let mut i = 0;
 
-    while i < chars.len() {
-        if chars[i] == '\\' && i + 1 < chars.len() {
-            match chars[i + 1] {
-                'n' => {
-                    result.push('\n');
+    while i < inner.len() {
+        if inner[i] == b'\\' && i + 1 < inner.len() {
+            match inner[i + 1] {
+                b'n' => {
+                    result.push(b'\n');
                     i += 2;
                 }
-                't' => {
-                    result.push('\t');
+                b't' => {
+                    result.push(b'\t');
                     i += 2;
                 }
-                'r' => {
-                    result.push('\r');
+                b'r' => {
+                    result.push(b'\r');
                     i += 2;
                 }
-                '\\' => {
-                    result.push('\\');
+                b'\\' => {
+                    result.push(b'\\');
                     i += 2;
                 }
-                '"' => {
-                    result.push('"');
+                b'"' => {
+                    result.push(b'"');
                     i += 2;
                 }
-                'a' => {
-                    result.push('\x07');
+                b'a' => {
+                    result.push(0x07);
                     i += 2;
                 }
-                'b' => {
-                    result.push('\x08');
+                b'b' => {
+                    result.push(0x08);
                     i += 2;
                 }
-                'f' => {
-                    result.push('\x0C');
+                b'f' => {
+                    result.push(0x0C);
                     i += 2;
                 }
-                'v' => {
-                    result.push('\x0B');
+                b'v' => {
+                    result.push(0x0B);
                     i += 2;
                 }
                 _ => {
-                    // Unknown escape — keep as-is (Go's strconv.Unquote fallback)
-                    result.push(chars[i]);
-                    result.push(chars[i + 1]);
+                    // Unknown escape — keep as-is
+                    result.push(inner[i]);
+                    result.push(inner[i + 1]);
                     i += 2;
                 }
             }
         } else {
-            result.push(chars[i]);
+            result.push(inner[i]);
             i += 1;
         }
     }
@@ -405,22 +411,22 @@ fn decode_lua_string(quoted: &str) -> String {
 }
 
 fn read_number_value(lex: &mut Lexer) -> Result<Value, String> {
-    lex.accept("-");
+    lex.accept(b"-");
 
-    while lex.next_rune().is_ascii_digit() {}
+    while lex.next_byte().is_ascii_digit() {}
     lex.backup();
 
     let mut is_int = true;
-    if lex.accept(".") {
+    if lex.accept(b".") {
         is_int = false;
-        while lex.next_rune().is_ascii_digit() {}
+        while lex.next_byte().is_ascii_digit() {}
         lex.backup();
     }
 
-    if lex.accept("eE") {
+    if lex.accept(b"eE") {
         is_int = false;
-        lex.accept("+-");
-        lex.accept_run("0123456789");
+        lex.accept(b"+-");
+        lex.accept_run(b"0123456789");
     }
 
     let num_str = lex.take();
@@ -452,10 +458,25 @@ mod tests {
 
     #[test]
     fn test_decode_lua_string_basic() {
-        assert_eq!(decode_lua_string(r#""hello""#), "hello");
-        assert_eq!(decode_lua_string(r#""hello\"world""#), "hello\"world");
-        assert_eq!(decode_lua_string(r#""hello\\""#), "hello\\");
-        assert_eq!(decode_lua_string(r#""hello\nworld""#), "hello\nworld");
-        assert_eq!(decode_lua_string(r#""hello\tworld""#), "hello\tworld");
+        assert_eq!(
+            bytes_to_string(&decode_lua_string_bytes(br#""hello""#)),
+            "hello"
+        );
+        assert_eq!(
+            bytes_to_string(&decode_lua_string_bytes(br#""hello\"world""#)),
+            "hello\"world"
+        );
+        assert_eq!(
+            bytes_to_string(&decode_lua_string_bytes(br#""hello\\""#)),
+            "hello\\"
+        );
+        assert_eq!(
+            bytes_to_string(&decode_lua_string_bytes(br#""hello\nworld""#)),
+            "hello\nworld"
+        );
+        assert_eq!(
+            bytes_to_string(&decode_lua_string_bytes(br#""hello\tworld""#)),
+            "hello\tworld"
+        );
     }
 }

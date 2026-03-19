@@ -788,6 +788,73 @@ fn test_string_transform_under_limit_unchanged() {
     assert_eq!(result, r#"{"short":"short"}"#);
 }
 
+// ========== Non-UTF-8 byte handling ==========
+
+#[test]
+fn test_non_utf8_bytes_preserved_losslessly() {
+    // Simulate a Lua string containing raw binary data (like Questie's objPtrs).
+    // Byte 0x9E is not valid UTF-8 on its own.
+    let input: &[u8] = b"data=\"hello\x9eworld\"";
+    let result = luadata::to_json(input, ParseConfig::new()).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let s = v["data"].as_str().unwrap();
+    // Byte 0x9E should be preserved as U+009E (Latin-1 code point), not U+FFFD.
+    assert!(s.contains('\u{009e}'), "expected U+009E, got: {:?}", s);
+    assert!(
+        !s.contains('\u{fffd}'),
+        "should not contain replacement character"
+    );
+    assert_eq!(s, "hello\u{009e}world");
+}
+
+#[test]
+fn test_valid_utf8_unchanged() {
+    // Valid UTF-8 multi-byte sequences must pass through unchanged.
+    let input = "data=\"\u{4e16}\u{754c}\""; // 世界
+    let result = text_to_json("input", input, ParseConfig::new()).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["data"], "世界");
+}
+
+#[test]
+fn test_mixed_utf8_and_binary() {
+    // Mix of valid UTF-8 and raw binary bytes. Because the string contains
+    // 0x9E (invalid UTF-8), the whole string falls back to Latin-1 byte mapping.
+    // So 0xC3 0xA9 (UTF-8 for é) becomes two Latin-1 chars: Ã (U+00C3) © (U+00A9).
+    let mut input = Vec::from(&b"data=\"valid\xc3\xa9"[..]);
+    input.extend_from_slice(b"\x9e");
+    input.extend_from_slice(b"end\"");
+    let result = luadata::to_json(&input, ParseConfig::new()).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let s = v["data"].as_str().unwrap();
+    assert!(s.starts_with("valid\u{00c3}\u{00a9}"));
+    assert!(s.contains('\u{009e}'));
+    assert!(s.ends_with("end"));
+}
+
+#[test]
+fn test_valid_utf8_string_via_bytes() {
+    // A file with a valid UTF-8 string: player name "Fröst".
+    // The whole string is valid UTF-8, so it decodes as UTF-8.
+    let input = b"name=\"Fr\xc3\xb6st\"";
+    let result = luadata::to_json(input, ParseConfig::new()).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["name"], "Fröst");
+}
+
+#[test]
+fn test_binary_blob_bytes_preserved() {
+    // Binary blob: bytes 0xC4 0xB6 appear but the string also has 0x9E,
+    // making it invalid UTF-8. All bytes map to Latin-1 code points.
+    // 0xC4 → U+00C4 (Ä), 0xB6 → U+00B6 (¶), NOT U+0136 (Ķ).
+    let input = b"data=\"\x02\x9e\xc4\xb6\x02\"";
+    let result = luadata::to_json(input, ParseConfig::new()).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let s = v["data"].as_str().unwrap();
+    let chars: Vec<u32> = s.chars().map(|c| c as u32).collect();
+    assert_eq!(chars, vec![0x02, 0x9e, 0xc4, 0xb6, 0x02]);
+}
+
 // ========== File-based tests ==========
 
 #[test]

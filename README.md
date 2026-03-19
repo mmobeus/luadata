@@ -167,6 +167,33 @@ lua_to_dict('{["a"] = 1, ["b"] = 2}')
 # {'@root': {'a': 1, 'b': 2}}
 ```
 
+### Binary strings
+
+Lua strings are raw byte sequences with no inherent encoding. Game addons like
+[Questie](https://github.com/Questie/Questie) use this to store compact binary
+data (packed coordinates, pointer maps, serialized databases) directly inside
+Lua string values. When the game client writes these to disk, the bytes are
+written verbatim between quotes.
+
+luadata handles this with a per-string heuristic: if a string's bytes are valid
+UTF-8, it decodes them as UTF-8 (so accented player names like "Fröst" render
+correctly). If the bytes contain any invalid UTF-8 sequences, each byte is
+mapped to its Latin-1 code point, preserving every byte losslessly.
+
+A consumer can recover the original bytes from a binary string value:
+
+```python
+raw_bytes = bytes(ord(c) for c in json_value)
+```
+
+```javascript
+const rawBytes = [...jsonValue].map(c => c.codePointAt(0));
+```
+
+```go
+rawBytes := []byte(jsonValue)
+```
+
 ## Options
 
 All parse and convert functions accept options controlling three behaviors: string transform, array detection, and empty table rendering. The defaults are the same across all languages.
