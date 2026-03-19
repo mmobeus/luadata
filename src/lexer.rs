@@ -101,6 +101,16 @@ impl Lexer {
         val
     }
 
+    /// Take the current span as a UTF-8 string. Valid UTF-8 sequences decode
+    /// normally; invalid bytes fall back to Latin-1 code points.
+    /// Used for identifiers and other non-string-literal text.
+    pub fn take_utf8(&mut self) -> String {
+        let bytes = &self.input[self.start..self.pos];
+        let val = bytes_to_string(bytes);
+        self.start = self.pos;
+        val
+    }
+
     /// Take the current span as raw bytes.
     pub fn take_bytes(&mut self) -> Vec<u8> {
         let val = self.input[self.start..self.pos].to_vec();
@@ -255,7 +265,7 @@ fn is_space(b: u8) -> bool {
 }
 
 pub fn is_alpha_numeric(b: u8) -> bool {
-    b == b'_' || b.is_ascii_alphabetic() || b.is_ascii_digit()
+    b == b'_' || b.is_ascii_alphabetic() || b.is_ascii_digit() || b > 0x7F
 }
 
 /// Decode raw bytes into a String. If the bytes are valid UTF-8, decode as

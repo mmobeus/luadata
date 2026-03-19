@@ -843,6 +843,15 @@ fn test_valid_utf8_string_via_bytes() {
 }
 
 #[test]
+fn test_utf8_identifier_via_bytes() {
+    // UTF-8 identifier: café as a variable name, passed as raw bytes.
+    let input = "café=\"résumé\"".as_bytes();
+    let result = luadata::to_json(input, ParseConfig::new()).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["café"], "résumé");
+}
+
+#[test]
 fn test_binary_blob_bytes_preserved() {
     // Binary blob: bytes 0xC4 0xB6 appear but the string also has 0x9E,
     // making it invalid UTF-8. All bytes map to Latin-1 code points.
