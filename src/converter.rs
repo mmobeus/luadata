@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::io::Read;
 
 use crate::options::{ArrayMode, EmptyTableMode, ParseConfig};
-use crate::parser::parse_text;
+use crate::parser::{parse_bytes, parse_text};
 use crate::types::*;
 
 /// Parse Lua data text and return JSON as a string.
@@ -14,9 +14,15 @@ pub fn text_to_json(name: &str, text: &str, config: ParseConfig) -> Result<Strin
 }
 
 /// Parse Lua data bytes and return JSON as a string.
+///
+/// The lexer operates on raw bytes. Inside string literals, bytes are preserved
+/// losslessly: if the string's bytes are valid UTF-8, they decode as UTF-8
+/// (so "Fröst" renders correctly); otherwise each byte maps to its Latin-1
+/// code point (so binary blobs round-trip perfectly).
 pub fn to_json(lua: &[u8], config: ParseConfig) -> Result<String, String> {
-    let text = std::str::from_utf8(lua).map_err(|e| format!("invalid UTF-8: {}", e))?;
-    text_to_json("input", text, config)
+    let parsed = parse_bytes("input", lua, config.clone())?;
+    let json_value = convert_kvps_to_json(&parsed, &config);
+    serde_json::to_string(&json_value).map_err(|e| format!("JSON serialization error: {}", e))
 }
 
 /// Parse Lua data from an io::Read and return JSON as a string.
@@ -25,17 +31,21 @@ pub fn reader_to_json(
     reader: &mut dyn Read,
     config: ParseConfig,
 ) -> Result<String, String> {
-    let mut text = String::new();
+    let mut buf = Vec::new();
     reader
-        .read_to_string(&mut text)
+        .read_to_end(&mut buf)
         .map_err(|e| format!("read error: {}", e))?;
-    text_to_json(name, &text, config)
+    let parsed = parse_bytes(name, &buf, config.clone())?;
+    let json_value = convert_kvps_to_json(&parsed, &config);
+    serde_json::to_string(&json_value).map_err(|e| format!("JSON serialization error: {}", e))
 }
 
 /// Parse a Lua data file and return JSON as a string.
 pub fn file_to_json(path: &str, config: ParseConfig) -> Result<String, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("file error: {}", e))?;
-    text_to_json(path, &text, config)
+    let buf = std::fs::read(path).map_err(|e| format!("file error: {}", e))?;
+    let parsed = parse_bytes(path, &buf, config.clone())?;
+    let json_value = convert_kvps_to_json(&parsed, &config);
+    serde_json::to_string(&json_value).map_err(|e| format!("JSON serialization error: {}", e))
 }
 
 /// Convert parsed KeyValuePairs to a serde_json::Value.

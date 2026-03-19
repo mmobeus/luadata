@@ -1,0 +1,50 @@
+Binary Strings
+---
+Lua strings are raw byte sequences — they have no inherent encoding. Game
+addons like Questie use this to store compact binary data (packed coordinates,
+pointer maps, serialized databases) directly inside Lua string values.
+
+When the game client writes SavedVariables to disk, these binary bytes are
+written verbatim between quotes. This means a `.lua` file can contain strings
+with arbitrary non-ASCII bytes that aren't valid UTF-8.
+
+luadata handles this with a per-string heuristic: if a string's bytes are
+valid UTF-8, it decodes them as UTF-8 (so accented player names like "Fröst"
+render correctly). If the bytes contain any invalid UTF-8 sequences, each byte
+is mapped to its Latin-1 code point, preserving every byte losslessly.
+---lua
+playerName = "Fröst"
+binaryData = "packed data here"
+---output
+{
+  "playerName": "Fröst",
+  "binaryData": "packed data here"
+}
+---
+In the example above, both strings are valid UTF-8 so they decode normally.
+In real addon data, a binary string might look like this in JSON:
+
+`"objPtrs": "\u0002\u009e\u00c4\u00b6\u0002"`
+
+Each `\uXXXX` escape represents one original byte. A consumer can recover
+the raw bytes by reading each character's code point as a byte value:
+
+```python
+raw_bytes = bytes(ord(c) for c in json_value)
+```
+
+```javascript
+const rawBytes = [...jsonValue].map(c => c.codePointAt(0));
+```
+
+```go
+rawBytes := []byte(jsonValue)
+```
+
+This design means:
+
+- **Text strings** (player names, item names) render correctly as UTF-8
+  everywhere — in browsers, databases, and APIs.
+- **Binary strings** (packed data, serialized blobs) are preserved losslessly.
+  Every original byte can be recovered from the JSON output.
+- The distinction is automatic — no configuration or hints needed.
