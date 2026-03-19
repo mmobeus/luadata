@@ -10,9 +10,8 @@ A Lua data parser with Rust, Go, Python, CLI, and WebAssembly interfaces. Useful
 
 ### Rust
 
-```toml
-[dependencies]
-luadata = "0.5"
+```
+cargo add luadata
 ```
 
 ```rust
@@ -105,9 +104,39 @@ luadata validate config.lua
 luadata tojson config.lua --empty-table array --array-mode sparse --array-max-gap 10
 ```
 
-### WebAssembly
+### Node.js / TypeScript
 
-The converter is available as an ES module (~124KB):
+```
+npm install mmobeus-luadata
+```
+
+```typescript
+import { init, convert } from "mmobeus-luadata";
+
+await init();
+
+// Convert Lua data to a JSON string
+const json = convert('playerName = "Thrall"');
+
+// Parse into an object
+const data = JSON.parse(convert(luaString));
+
+// With options
+const json = convert(luaString, {
+    emptyTable: "array",
+    arrayMode: "sparse",
+    arrayMaxGap: 10,
+    stringTransform: { maxLen: 1024, mode: "truncate" },
+});
+```
+
+The package includes TypeScript type definitions. `init()` must be called once
+before `convert()` — it loads the WASM module.
+
+### WebAssembly (browser)
+
+For direct browser usage without a bundler, the WASM module can be loaded as an
+ES module:
 
 ```bash
 make build-wasm  # outputs to bin/web/
@@ -117,16 +146,7 @@ make build-wasm  # outputs to bin/web/
 import { init, convert } from "./luadata.js";
 
 await init();
-
 const json = convert('playerName = "Thrall"');
-
-// With options
-const json = convert(luaString, {
-    emptyTable: "array",
-    arrayMode: "sparse",
-    arrayMaxGap: 10,
-    stringTransform: { maxLen: 1024, mode: "truncate" },
-});
 ```
 
 A ready-made web interface is also included:
