@@ -26,6 +26,14 @@ DRY_RUN="${DRY_RUN:-}"
 FFI_DIR="go/internal/ffi"
 LIB_DIR="$FFI_DIR/lib"
 
+# ── Set workspace version from tag ───────────────────────────────
+
+VERSION="${RELEASE_TAG#v}"
+echo "Setting workspace version to ${VERSION}..."
+sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
+rm -f Cargo.toml.bak
+echo "  updated: Cargo.toml"
+
 # ── Stage shared libraries ────────────────────────────────────────
 
 stage_lib() {
@@ -99,9 +107,10 @@ git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 
 git checkout -B release
+git add Cargo.toml
 git add "$FFI_DIR/"
 git add go/.gitignore
-git commit -m "Release ${RELEASE_TAG}: embed shared libraries"
+git commit -m "Release ${RELEASE_TAG}: embed shared libraries and set version"
 git tag "$RELEASE_TAG"
 git push origin release --force
 git push origin "$RELEASE_TAG"
