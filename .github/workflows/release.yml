@@ -231,11 +231,6 @@ jobs:
           wasm-pack build wasm --target bundler --out-dir ../npm/wasm
           rm -f npm/wasm/package.json npm/wasm/.gitignore
 
-      - name: Set package version from Cargo workspace
-        run: |
-          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          cd npm && npm version "$VERSION" --no-git-tag-version
-
       - name: Publish to npm
         working-directory: npm
         run: npm publish --access public
@@ -263,3 +258,40 @@ jobs:
         run: cargo publish -p luadata
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  bump-main-version:
+    needs: test-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: main
+
+      - name: Bump version files
+        run: |
+          TAG="${{ needs.test-and-release.outputs.release_tag }}"
+          VERSION="${TAG#v}"
+          sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
+          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" npm/package.json
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="version-bump/v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add Cargo.toml npm/package.json
+          git commit -m "Bump version to ${VERSION} after release"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Bump version to ${VERSION}" \
+            --body "Automated version bump after release of v${VERSION}."
