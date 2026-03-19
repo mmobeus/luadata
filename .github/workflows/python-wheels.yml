@@ -19,7 +19,7 @@ jobs:
             runner: ubuntu-24.04-arm
             lib_ext: .so
           - target: macos-x64
-            runner: macos-13
+            runner: macos-15-intel
             lib_ext: .dylib
           - target: macos-arm64
             runner: macos-latest
@@ -39,7 +39,8 @@ jobs:
 
       - name: Install MinGW
         if: runner.os == 'Windows'
-        uses: egor-tensin/setup-mingw@v2
+        run: choco install mingw -y
+        shell: pwsh
 
       - name: Build shared library
         run: go build -buildmode=c-shared -o libluadata${{ matrix.lib_ext }} ./clib
