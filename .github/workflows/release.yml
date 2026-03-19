@@ -59,6 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      release_tag: ${{ steps.release_tag.outputs.tag }}
 
     steps:
       - uses: actions/checkout@v6.0.2
@@ -106,6 +108,7 @@ jobs:
             clib-artifacts/clib-*/luadata_clib.*
 
   build-python-wheels:
+    needs: test-and-release
     strategy:
       fail-fast: false
       matrix:
@@ -130,6 +133,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.test-and-release.outputs.release_tag }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -154,9 +159,12 @@ jobs:
           path: wheels/*.whl
 
   build-python-sdist:
+    needs: test-and-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.test-and-release.outputs.release_tag }}
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
@@ -171,7 +179,7 @@ jobs:
           path: wheels/*.tar.gz
 
   publish-python:
-    needs: [build-python-wheels, build-python-sdist, test-and-release]
+    needs: [build-python-wheels, build-python-sdist]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -203,6 +211,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.test-and-release.outputs.release_tag }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -221,11 +231,9 @@ jobs:
           wasm-pack build wasm --target bundler --out-dir ../npm/wasm
           rm -f npm/wasm/package.json npm/wasm/.gitignore
 
-      - name: Set package version
+      - name: Set package version from Cargo workspace
         run: |
-          RC_TAG="${{ github.ref_name }}"
-          VERSION="${RC_TAG#v}"
-          VERSION="${VERSION%%-rc.*}"
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
           cd npm && npm version "$VERSION" --no-git-tag-version
 
       - name: Publish to npm
@@ -242,6 +250,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.test-and-release.outputs.release_tag }}
 
       - uses: dtolnay/rust-toolchain@stable
 
