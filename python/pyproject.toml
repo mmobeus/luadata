@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmobeus-luadata"
+dynamic = ["version"]
+description = "Convert Lua data files (e.g. WoW SavedVariables) to JSON/Python objects"
+requires-python = ">=3.9"
+license = "MIT"
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://github.com/mmobeus/luadata"
+
+[tool.setuptools-scm]
+root = ".."
+
+[tool.setuptools.packages.find]
+include = ["luadata*"]
+
+[tool.setuptools.package-data]
+luadata = ["libluadata.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

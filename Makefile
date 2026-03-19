@@ -2,10 +2,22 @@ GOLANGCI_LINT_VERSION := v2.11.3
 GOFUMPT_VERSION := v0.9.0
 BUMP ?= patch
 
-.PHONY: build build-wasm build-docs build-site serve clean test lint fmt fmt-check check setup release validate validate-testdata
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	SHARED_EXT := .dylib
+else ifeq ($(UNAME_S),Linux)
+	SHARED_EXT := .so
+else
+	SHARED_EXT := .dll
+endif
+
+.PHONY: build build-clib build-wasm build-docs build-site serve clean test test-python lint fmt fmt-check check setup release validate validate-testdata
 
 build:
 	go build -o bin/cli/luadata ./cmd/luadata
+
+build-clib:
+	go build -buildmode=c-shared -o bin/clib/libluadata$(SHARED_EXT) ./clib
 
 build-wasm:
 	GOOS=js GOARCH=wasm go build -o bin/web/luadata.wasm ./cmd/wasm
@@ -27,6 +39,9 @@ clean:
 
 test:
 	go test ./...
+
+test-python: build-clib
+	cd python && python3 -m pytest tests -v
 
 lint:
 	golangci-lint run ./...
