@@ -3,3 +3,9 @@ bin/
 /luadata
 /wasm
 .claude
+
+# Python build artifacts
+python/luadata/libluadata.*
+python/dist/
+python/build/
+python/*.egg-info/
