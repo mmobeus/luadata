@@ -1134,8 +1134,11 @@ func readQuotedStringValue(lex *lexer) (Value, error) {
 			return Value{}, fmt.Errorf("unterminated quoted string")
 		case '"':
 			quotedVal := lex.take()
-			sourceVal := quotedVal[1 : len(quotedVal)-1]
-			val, wasTransformed := lex.config.transformString(sourceVal)
+			decoded, err := strconv.Unquote(quotedVal)
+			if err != nil {
+				decoded = quotedVal[1 : len(quotedVal)-1]
+			}
+			val, wasTransformed := lex.config.transformString(decoded)
 
 			return Value{
 				Type:        StringValue,

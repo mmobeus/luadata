@@ -272,8 +272,97 @@ func TestParseText_EscapedStrings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	val := result.GetString("foo")
-	if val != `hello\"world` {
-		t.Errorf("expected %q, got %q", `hello\"world`, val)
+	if val != `hello"world` {
+		t.Errorf("expected %q, got %q", `hello"world`, val)
+	}
+}
+
+func TestParseText_EscapeSequences(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantRaw  string
+		wantJSON string
+	}{
+		{
+			// Lua: \" is an escaped quote → string value contains a literal "
+			name:     "escaped quote mid-string",
+			input:    `foo="hello\"world"`,
+			wantRaw:  `hello"world`,
+			wantJSON: `{"foo":"hello\"world"}`,
+		},
+		{
+			// Lua: \\ is an escaped backslash → string value contains a literal \
+			name:     "double backslash before closing quote",
+			input:    `foo="hello\\"`,
+			wantRaw:  `hello\`,
+			wantJSON: `{"foo":"hello\\"}`,
+		},
+		{
+			// Lua: \\ then \" → literal backslash followed by literal quote
+			name:     "triple backslash before quote",
+			input:    `foo="hello\\\"world"`,
+			wantRaw:  `hello\"world`,
+			wantJSON: `{"foo":"hello\\\"world"}`,
+		},
+		{
+			// Lua: \n is a newline escape → string value contains a newline
+			name:     "backslash n is newline",
+			input:    `foo="hello\nworld"`,
+			wantRaw:  "hello\nworld",
+			wantJSON: "{\"foo\":\"hello\\nworld\"}",
+		},
+		{
+			// Lua: \t is a tab escape → string value contains a tab
+			name:     "backslash t is tab",
+			input:    `foo="hello\tworld"`,
+			wantRaw:  "hello\tworld",
+			wantJSON: "{\"foo\":\"hello\\tworld\"}",
+		},
+		{
+			// Lua: \\\\ is two escaped backslashes → string value contains \\
+			name:     "four backslashes is two literal backslashes",
+			input:    `foo="hello\\\\"`,
+			wantRaw:  `hello\\`,
+			wantJSON: `{"foo":"hello\\\\"}`,
+		},
+		{
+			// Lua: \" at start → string starts with a literal quote
+			name:     "escaped quote at start",
+			input:    `foo="\"hello"`,
+			wantRaw:  `"hello`,
+			wantJSON: `{"foo":"\"hello"}`,
+		},
+		{
+			// Lua: multiple \" → each is a literal quote in the string
+			name:     "multiple escaped quotes",
+			input:    `foo="say \"hi\" ok"`,
+			wantRaw:  `say "hi" ok`,
+			wantJSON: `{"foo":"say \"hi\" ok"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseText("input", tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			raw := result.GetString("foo")
+			if raw != tt.wantRaw {
+				t.Errorf("Raw: expected %q, got %q", tt.wantRaw, raw)
+			}
+
+			gotJSON, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("marshal error: %v", err)
+			}
+			gotStr := strings.TrimRight(string(gotJSON), "\n")
+			if gotStr != tt.wantJSON {
+				t.Errorf("JSON: expected %s, got %s", tt.wantJSON, gotStr)
+			}
+		})
 	}
 }
 
