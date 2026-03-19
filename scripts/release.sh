@@ -62,32 +62,59 @@ else
 	PATCH="${REST#*.}"
 fi
 
-case "$BUMP" in
-patch)
-	PATCH=$((PATCH + 1))
-	NEXT="v${MAJOR}.${MINOR}.${PATCH}"
-	;;
-minor)
-	MINOR=$((MINOR + 1))
-	NEXT="v${MAJOR}.${MINOR}.0"
-	;;
-major)
-	MAJOR=$((MAJOR + 1))
-	NEXT="v${MAJOR}.0.0"
-	;;
-manual)
-	printf "Enter version (e.g. v1.0.0): "
-	read -r NEXT
-	if [[ ! "$NEXT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "Error: version must be semver like v1.0.0." >&2
-		exit 1
+# Check for an in-flight RC (an RC tag exists but no matching final release)
+LATEST_ANY_RC="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' | head -1 || true)"
+INFLIGHT_VERSION=""
+
+if [ -n "$LATEST_ANY_RC" ]; then
+	INFLIGHT_VERSION="${LATEST_ANY_RC%%-rc.*}"
+	# Check if a final release exists for this version
+	if git tag --list "$INFLIGHT_VERSION" | grep -q .; then
+		INFLIGHT_VERSION="" # final release exists, not in-flight
 	fi
-	;;
-*)
-	echo "Error: unknown bump type '$BUMP'. Use patch, minor, major, or manual." >&2
-	exit 1
-	;;
-esac
+fi
+
+if [ -n "$INFLIGHT_VERSION" ]; then
+	echo ""
+	echo "  Found in-flight release: ${LATEST_ANY_RC}"
+	echo ""
+	printf "Retry this release (${INFLIGHT_VERSION})? [Y/n] "
+	read -r RETRY
+	if [[ "$RETRY" == "n" || "$RETRY" == "N" ]]; then
+		INFLIGHT_VERSION=""
+	fi
+fi
+
+if [ -n "$INFLIGHT_VERSION" ]; then
+	NEXT="$INFLIGHT_VERSION"
+else
+	case "$BUMP" in
+	patch)
+		PATCH=$((PATCH + 1))
+		NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+		;;
+	minor)
+		MINOR=$((MINOR + 1))
+		NEXT="v${MAJOR}.${MINOR}.0"
+		;;
+	major)
+		MAJOR=$((MAJOR + 1))
+		NEXT="v${MAJOR}.0.0"
+		;;
+	manual)
+		printf "Enter version (e.g. v1.0.0): "
+		read -r NEXT
+		if [[ ! "$NEXT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+			echo "Error: version must be semver like v1.0.0." >&2
+			exit 1
+		fi
+		;;
+	*)
+		echo "Error: unknown bump type '$BUMP'. Use patch, minor, major, or manual." >&2
+		exit 1
+		;;
+	esac
+fi
 
 # ── Compute RC number ─────────────────────────────────────────────
 
