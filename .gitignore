@@ -1,11 +1,9 @@
 # Build outputs
 bin/
-/luadata
-/wasm
+target/
+wheels/
+.venv/
 .claude
 
-# Python build artifacts
-python/luadata/libluadata.*
-python/dist/
-python/build/
-python/*.egg-info/
+# wasm-pack output inside npm package (built at release time)
+npm/wasm/

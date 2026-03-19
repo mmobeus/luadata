@@ -32,7 +32,10 @@
     </style>
 </head>
 <body>
-    <h1>Lua Data → JSON</h1>
+    <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1rem;">
+        <h1 style="margin-bottom: 0;">Lua Data → JSON</h1>
+        <span id="version" style="font-size: 0.8rem; color: #999;">__VERSION__</span>
+    </div>
     <p style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #555;">Paste Lua data below and convert it to JSON instantly. Powered by <a href="https://github.com/mmobeus/luadata" style="color: #2563eb;">luadata</a> compiled to WebAssembly.</p>
     <p style="margin-bottom: 1rem; font-size: 0.9rem; color: #555;">New here? Try <a href="docs/index.html" style="color: #2563eb;">Luadata by Example</a> for a guided tour.</p>
 
@@ -92,7 +95,6 @@
     </div>
     <p id="error"></p>
 
-    <script src="wasm_exec.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>
