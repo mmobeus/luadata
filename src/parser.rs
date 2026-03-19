@@ -35,7 +35,7 @@ pub fn parse_bytes(name: &str, input: &[u8], config: ParseConfig) -> Result<KeyV
             first_iteration = false;
             let b = lex.peek();
 
-            let is_raw_value = if !b.is_ascii_alphabetic() && b != b'_' {
+            let is_raw_value = if !b.is_ascii_alphabetic() && b != b'_' && b <= 0x7F {
                 true
             } else {
                 // Could be identifier=value OR a bare keyword (true/false/nil)
@@ -133,7 +133,7 @@ fn read_lua_identifier(lex: &mut Lexer) -> Result<String, String> {
     while is_alpha_numeric(lex.next_byte()) {}
     lex.backup();
 
-    let ident = lex.take();
+    let ident = lex.take_utf8();
     if ident.is_empty() {
         return Err("expected identifier".to_string());
     }
