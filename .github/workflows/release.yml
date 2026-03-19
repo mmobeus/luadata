@@ -97,6 +97,18 @@ jobs:
       - name: Prepare release branch and tag
         run: bash scripts/prepare-release.sh "${{ steps.release_tag.outputs.tag }}" clib-artifacts
 
+      - name: Rename artifacts with platform
+        run: |
+          for dir in clib-artifacts/clib-*; do
+            platform="${dir##*clib-}"
+            for file in "$dir"/*; do
+              base="$(basename "$file")"
+              name="${base%.*}"
+              ext="${base##*.}"
+              mv "$file" "$dir/${name}-${platform}.${ext}"
+            done
+          done
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -104,8 +116,7 @@ jobs:
           gh release create "${{ steps.release_tag.outputs.tag }}" \
             --title "${{ steps.release_tag.outputs.tag }}" \
             --generate-notes \
-            clib-artifacts/clib-*/libluadata_clib.* \
-            clib-artifacts/clib-*/luadata_clib.*
+            clib-artifacts/clib-*/*
 
   build-python-wheels:
     needs: test-and-release
