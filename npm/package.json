@@ -1,0 +1,30 @@
+{
+  "name": "mmobeus-luadata",
+  "version": "0.1.2",
+  "description": "Parse Lua data files and convert to JSON (WebAssembly)",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "wasm/luadata_wasm_bg.wasm",
+    "wasm/luadata_wasm.js",
+    "wasm/luadata_wasm.d.ts"
+  ],
+  "keywords": [
+    "lua",
+    "json",
+    "parser",
+    "wow",
+    "savedvariables",
+    "wasm",
+    "webassembly"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmobeus/luadata"
+  },
+  "homepage": "https://mmobeus.github.io/luadata/"
+}

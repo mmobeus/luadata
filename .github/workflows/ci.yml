@@ -6,28 +6,58 @@ on:
   pull_request:
 
 jobs:
-  ci:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: actions/setup-go@v6.3.0
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          go-version-file: go.mod
+          components: clippy, rustfmt
 
-      - name: Build
-        run: go build ./...
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
-      - name: Build WASM
-        run: GOOS=js GOARCH=wasm go vet ./cmd/wasm
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
 
-      - name: Test
-        run: go test ./...
+      - name: Test core library
+        run: cargo test -p luadata
 
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9.2.0
-        with:
-          version: v2.11.3
+      - name: Check Python module
+        run: cargo check -p luadata_python
+
+      - name: Check WASM module
+        run: cargo check -p luadata-wasm
+
+      - name: Build CLI
+        run: cargo build -p luadata_cli --release
 
       - name: Validate testdata
-        run: make validate-testdata
+        run: |
+          ./target/release/luadata validate testdata/valid/simple.lua
+          ./target/release/luadata validate testdata/valid/array.lua
+          ./target/release/luadata validate testdata/valid/nested.lua
+          ./target/release/luadata validate testdata/valid/comments.lua
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version-file: go/go.mod
+
+      - name: Build Rust cdylib
+        run: |
+          cargo build -p luadata_clib --release
+          mkdir -p bin/clib
+          cp target/release/libluadata_clib.so bin/clib/libluadata.so
+
+      - name: Test Go wrapper
+        run: |
+          LUADATA_LIB_PATH=${{ github.workspace }}/bin/clib/libluadata.so \
+            go test -C go -v ./...

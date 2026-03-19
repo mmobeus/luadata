@@ -1,4 +1,4 @@
-// luadata.js — reusable wrapper around the luadata WASM module.
+// luadata.js — reusable wrapper around the luadata Rust WASM module.
 //
 // Usage:
 //   import { init, convert } from "./luadata.js";
@@ -11,24 +11,22 @@
 //     stringTransform: { maxLen: 100, mode: "redact" },
 //   });
 
-let ready = false;
+let wasmModule = null;
 
-export function init(wasmPath = "luadata.wasm") {
-    return new Promise((resolve, reject) => {
-        const go = new Go();
-        WebAssembly.instantiateStreaming(fetch(wasmPath), go.importObject).then((result) => {
-            go.run(result.instance);
-            ready = true;
-            resolve();
-        }).catch(reject);
-    });
+export async function init(pkgPath = "pkg") {
+    const mod = await import(`./${pkgPath}/luadata_wasm.js`);
+    await mod.default();
+    wasmModule = mod;
 }
 
 export function convert(input, opts) {
-    if (!ready) throw new Error("luadata WASM not initialized — call init() first");
+    if (!wasmModule) throw new Error("luadata WASM not initialized — call init() first");
 
     const hasOpts = opts && Object.keys(opts).length > 0;
-    const res = hasOpts ? convertLuaDataToJson(input, opts) : convertLuaDataToJson(input);
+    const res = hasOpts
+        ? wasmModule.convertLuaDataToJson(input, opts)
+        : wasmModule.convertLuaDataToJson(input);
+
     if (res.error) throw new Error(res.error);
     return res.result;
 }

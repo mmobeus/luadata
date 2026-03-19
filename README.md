@@ -1,71 +1,142 @@
 # luadata
 
-A Go library that parses Lua data files into JSON. Useful for working with game addon data files like World of Warcraft SavedVariables.
-
-## Docs
+A Lua data parser with Rust, Go, Python, CLI, and WebAssembly interfaces. Useful for working with game addon data files like World of Warcraft SavedVariables.
 
 **[Luadata by Example](https://mmobeus.github.io/luadata/docs/)** — A guided tour of all features with interactive examples.
 
 **[Live Converter](https://mmobeus.github.io/luadata/)** — Try it in your browser. Paste Lua data and get JSON instantly.
 
-## Install
+## Usage
+
+### Rust
+
+```toml
+[dependencies]
+luadata = "0.5"
+```
+
+```rust
+use luadata::{text_to_json, file_to_json, ParseConfig};
+
+// From a string
+let json = text_to_json("input", r#"playerName = "Thrall""#, ParseConfig::new())?;
+
+// From a file
+let json = file_to_json("config.lua", ParseConfig::new())?;
+
+// With options
+let mut config = ParseConfig::new();
+config.array_mode = Some(luadata::options::ArrayMode::IndexOnly);
+config.empty_table_mode = luadata::options::EmptyTableMode::Array;
+let json = text_to_json("input", lua_string, config)?;
+```
+
+### Go
 
 ```
-go get github.com/mmobeus/luadata
+go get github.com/mmobeus/luadata/go
 ```
-
-## Examples
-
-### Lua to JSON
 
 ```go
-input := []byte(`
-playerName = "Thrall"
-playerLevel = 60
-settings = {
-    ["showHelm"] = true,
-    ["ui"] = {
-        ["scale"] = 1.25,
-        ["panels"] = {"map", "inventory", "chat"},
-    },
-}
-`)
+import luadata "github.com/mmobeus/luadata/go"
 
-jsonReader, err := luadata.ToJSON(input)
+// From a string
+reader, err := luadata.TextToJSON("input", luaString)
+
+// From a file
+reader, err := luadata.FileToJSON("config.lua")
+
+// From bytes
+reader, err := luadata.ToJSON(luaBytes)
+
+// From an io.Reader
+reader, err := luadata.ReaderToJSON("input", r)
+
+// With options
+reader, err := luadata.TextToJSON("input", luaString,
+    luadata.WithArrayMode("sparse", 10),
+    luadata.WithEmptyTableMode("array"),
+    luadata.WithStringTransform(1024, "truncate"),
+)
 ```
 
-Output:
+All functions return an `io.Reader` containing JSON.
 
-```json
-{
-  "playerName": "Thrall",
-  "playerLevel": 60,
-  "settings": {
-    "showHelm": true,
-    "ui": {
-      "scale": 1.25,
-      "panels": ["map", "inventory", "chat"]
-    }
-  }
-}
+### Python
+
+```
+pip install mmobeus-luadata
 ```
 
-### Typed access
+```python
+from luadata import lua_to_json, lua_to_dict
 
-```go
-data, err := luadata.ParseFile("saved.lua")
+# Get JSON string
+json_str = lua_to_json('playerName = "Thrall"')
 
-name := data.GetString("playerName")
-level := data.GetInt("playerLevel")
-settings := data.GetTable("settings")
+# Get Python dict
+data = lua_to_dict('playerName = "Thrall"')
 
-if hp, ok := data.MaybeGetInt("health"); ok {
-    fmt.Println(hp)
-}
+# With options
+data = lua_to_dict(lua_string,
+    array_mode="sparse",
+    array_max_gap=10,
+    empty_table="array",
+    string_max_len=1024,
+    string_mode="truncate",
+)
 ```
 
+### CLI
 
-## Saved variable format
+```bash
+make build
+
+# Convert a file
+luadata tojson config.lua
+
+# Read from stdin
+cat config.lua | luadata tojson -
+
+# Validate without converting
+luadata validate config.lua
+
+# With options
+luadata tojson config.lua --empty-table array --array-mode sparse --array-max-gap 10
+```
+
+### WebAssembly
+
+The converter is available as an ES module (~124KB):
+
+```bash
+make build-wasm  # outputs to bin/web/
+```
+
+```javascript
+import { init, convert } from "./luadata.js";
+
+await init();
+
+const json = convert('playerName = "Thrall"');
+
+// With options
+const json = convert(luaString, {
+    emptyTable: "array",
+    arrayMode: "sparse",
+    arrayMaxGap: 10,
+    stringTransform: { maxLen: 1024, mode: "truncate" },
+});
+```
+
+A ready-made web interface is also included:
+
+```bash
+make serve
+# Opens at http://localhost:8080
+```
+
+## Lua data format
 
 The library parses Lua files containing top-level variable assignments. This is a common data persistence technique used by Lua systems (including World of Warcraft addon data). Each assignment is a variable name followed by `=` and a value:
 
@@ -80,62 +151,102 @@ guildRoster = {
 }
 ```
 
-This is a valid Lua file, with a list of assignments to inline data values. These are parsed into a map-like structure, where the keys are the variable names, and the values are json equivalents of the Lua values.
+This is a valid Lua file, with a list of assignments to inline data values. These are parsed into a map-like structure, where the keys are the variable names, and the values are JSON equivalents of the Lua values.
 
-## Raw values
+### Raw values
 
-In addition to variable assignments, luadata can parse a single raw Lua value (a table, string, number, boolean, or `nil`). When a raw value is detected, the resulting map-like structure contains a single key `@root`, with the parsed lua value as the value.
-
-```go
-data, err := luadata.ParseText("input", `{["a"]=1,["b"]=2}`)
-// data has one entry with key "@root" containing the table
-```
+In addition to variable assignments, luadata can parse a single raw Lua value (a table, string, number, boolean, or `nil`). When a raw value is detected, the output contains a single key `@root` with the parsed value:
 
 ```bash
-echo '{"a","b","c"}' | bin/cli/luadata tojson -
+echo '{"a","b","c"}' | luadata tojson -
 # {"@root":["a","b","c"]}
+```
+
+```python
+lua_to_dict('{["a"] = 1, ["b"] = 2}')
+# {'@root': {'a': 1, 'b': 2}}
+```
+
+### Binary strings
+
+Lua strings are raw byte sequences with no inherent encoding. Game addons like
+[Questie](https://github.com/Questie/Questie) use this to store compact binary
+data (packed coordinates, pointer maps, serialized databases) directly inside
+Lua string values. When the game client writes these to disk, the bytes are
+written verbatim between quotes.
+
+luadata handles this with a per-string heuristic: if a string's bytes are valid
+UTF-8, it decodes them as UTF-8 (so accented player names like "Fröst" render
+correctly). If the bytes contain any invalid UTF-8 sequences, each byte is
+mapped to its Latin-1 code point, preserving every byte losslessly.
+
+A consumer can recover the original bytes from a binary string value:
+
+```python
+raw_bytes = bytes(ord(c) for c in json_value)
+```
+
+```javascript
+const rawBytes = [...jsonValue].map(c => c.codePointAt(0));
+```
+
+```go
+rawBytes := []byte(jsonValue)
 ```
 
 ## Options
 
-All parse and convert functions accept functional options.
+All parse and convert functions accept options controlling three behaviors: string transform, array detection, and empty table rendering. The defaults are the same across all languages.
 
 ### String transform
 
-Use `WithStringTransform` to limit string length during parsing. This is indended for use cases where the source data has some values that are larger than the caller expects to manage, and do NOT want the large values to (for example) be rendered in the JSON output.
+Limit string length during parsing. When a string exceeds the max length, the transform is applied — the parser treats the result as if the transformed value was the original.
 
-When a string exceeds `MaxLen`, the transform is applied to both `Source` and `Raw` — the parser treats the result as if the transformed value was the original. The `Transformed` flag on `Value` is set to `true` so callers can detect this if needed.
+| Mode | Behavior |
+|---|---|
+| `truncate` | Truncate to max length |
+| `empty` | Replace with `""` |
+| `redact` | Replace with `"[redacted]"` |
+| `replace` | Replace with a custom string |
 
-```go
-data, err := luadata.ParseText("input", luaString,
-    luadata.WithStringTransform(luadata.StringTransform{
-        MaxLen: 1024,
-        Mode:   luadata.StringTransformTruncate,
-    }),
-)
+Strings at or under the max length are not modified.
+
+<details>
+<summary>Syntax by language</summary>
+
+**Rust:**
+```rust
+config.string_transform = Some(StringTransform {
+    max_len: 1024,
+    mode: StringTransformMode::Truncate,
+    replacement: String::new(),
+});
 ```
 
-Available modes:
-
-| Mode                       | Behavior                              |
-|----------------------------|---------------------------------------|
-| `StringTransformTruncate`  | Truncate to `MaxLen` bytes            |
-| `StringTransformEmpty`     | Replace with `""`                     |
-| `StringTransformRedact`    | Replace with `"[redacted]"`           |
-| `StringTransformReplace`   | Replace with custom `Replacement` string |
-
-Strings at or under `MaxLen` are not modified.
-
+**Go:**
 ```go
-// Replace long strings with a custom message
-jsonReader, err := luadata.ToJSON(input,
-    luadata.WithStringTransform(luadata.StringTransform{
-        MaxLen:      2048,
-        Mode:        luadata.StringTransformReplace,
-        Replacement: "[removed]",
-    }),
-)
+luadata.WithStringTransform(1024, "truncate")
+luadata.WithStringTransform(2048, "replace", "[removed]")
 ```
+
+**Python:**
+```python
+lua_to_json(text, string_max_len=1024, string_mode="truncate")
+lua_to_json(text, string_max_len=2048, string_mode="replace", string_replacement="[removed]")
+```
+
+**CLI:**
+```bash
+luadata tojson file.lua --string-max-len 1024 --string-mode truncate
+luadata tojson file.lua --string-max-len 2048 --string-mode replace --string-replacement "[removed]"
+```
+
+**WASM:**
+```javascript
+convert(text, { stringTransform: { maxLen: 1024, mode: "truncate" } })
+```
+
+</details>
 
 ### Array detection
 
@@ -148,150 +259,119 @@ In Lua (and WoW SavedVariables in particular), array data can appear in two form
 
 WoW addons may switch between these forms over time. An array initially saved with implicit syntax may later be re-saved with explicit `[n]=` keys after entries are added or removed. Sparse arrays (with gaps) like `{[1] = "apple", [3] = "cherry"}` are also common when elements are deleted.
 
-By default, both implicit index tables and tables with explicit integer keys render as JSON arrays, as long as the gap between consecutive keys does not exceed 20 (`ArrayModeSparse{MaxGap: 20}`). Missing indices are filled with `null`. This produces the most natural JSON for array-like data.
-
-`WithArrayDetection` controls this behavior using one of three modes:
-
-```go
-// ArrayModeSparse (default): treat Int-key tables as arrays within a gap threshold.
-// The default is ArrayModeSparse{MaxGap: 20} when no option is specified.
-data, err := luadata.ParseText("input", luaString,
-    luadata.WithArrayDetection(luadata.ArrayModeSparse{MaxGap: 0}), // contiguous only
-)
-
-// ArrayModeIndexOnly: only implicit index tables ({"a","b"}) render as arrays.
-// Explicit integer keys always produce objects.
-data, err := luadata.ParseText("input", luaString,
-    luadata.WithArrayDetection(luadata.ArrayModeIndexOnly{}),
-)
-
-// ArrayModeNone: no array rendering at all. Every table becomes a JSON object,
-// including implicit index tables.
-jsonReader, err := luadata.ToJSON(input,
-    luadata.WithArrayDetection(luadata.ArrayModeNone{}),
-)
-```
+By default, both implicit index tables and tables with explicit integer keys render as JSON arrays, as long as the gap between consecutive keys does not exceed 20 (`sparse` mode with max gap 20). Missing indices are filled with `null`. This produces the most natural JSON for array-like data.
 
 | Mode | `{[1]="a",[2]="b"}` | `{[1]="a",[3]="c"}` | `{"a","b"}` |
 |---|---|---|---|
-| `ArrayModeSparse{MaxGap: 20}` (default) | `["a","b"]` | `["a",null,"c"]` | `["a","b"]` |
-| `ArrayModeSparse{MaxGap: 0}` | `["a","b"]` | `{"1":"a","3":"c"}` | `["a","b"]` |
-| `ArrayModeIndexOnly{}` | `{"1":"a","2":"b"}` | `{"1":"a","3":"c"}` | `["a","b"]` |
-| `ArrayModeNone{}` | `{"1":"a","2":"b"}` | `{"1":"a","3":"c"}` | `{"1":"a","2":"b"}` |
+| `sparse` (default, max gap 20) | `["a","b"]` | `["a",null,"c"]` | `["a","b"]` |
+| `sparse` (max gap 0) | `["a","b"]` | `{"1":"a","3":"c"}` | `["a","b"]` |
+| `index-only` | `{"1":"a","2":"b"}` | `{"1":"a","3":"c"}` | `["a","b"]` |
+| `none` | `{"1":"a","2":"b"}` | `{"1":"a","3":"c"}` | `{"1":"a","2":"b"}` |
 
 Gaps are measured from index 0, so Lua's 1-based arrays (starting at `[1]`) have a gap of 0 from the start. A table starting at `[2]` has a leading gap of 1.
+
+<details>
+<summary>Syntax by language</summary>
+
+**Rust:**
+```rust
+config.array_mode = Some(ArrayMode::Sparse { max_gap: 0 });
+config.array_mode = Some(ArrayMode::IndexOnly);
+config.array_mode = Some(ArrayMode::None);
+```
+
+**Go:**
+```go
+luadata.WithArrayMode("sparse", 0)    // contiguous only
+luadata.WithArrayMode("index-only")
+luadata.WithArrayMode("none")
+```
+
+**Python:**
+```python
+lua_to_json(text, array_mode="sparse", array_max_gap=0)
+lua_to_json(text, array_mode="index-only")
+lua_to_json(text, array_mode="none")
+```
+
+**CLI:**
+```bash
+luadata tojson file.lua --array-mode sparse --array-max-gap 0
+luadata tojson file.lua --array-mode index-only
+luadata tojson file.lua --array-mode none
+```
+
+**WASM:**
+```javascript
+convert(text, { arrayMode: "sparse", arrayMaxGap: 0 })
+convert(text, { arrayMode: "index-only" })
+convert(text, { arrayMode: "none" })
+```
+
+</details>
 
 ### Empty tables
 
 Lua has no distinction between an empty array and an empty object — both are simply `{}`. This creates an ambiguity when converting to JSON, where `[]` and `{}` have different meanings. By default, empty tables render as `null`, which avoids making an arbitrary choice between the two JSON types while still making the key visible in the output (unlike omitting it, which could look like a bug).
 
-`WithEmptyTableMode` controls how empty tables are rendered:
-
-```go
-data, err := luadata.ParseText("input", luaString,
-    luadata.WithEmptyTableMode(luadata.EmptyTableArray),
-)
-```
-
 | Mode | `foo={}` |
 |---|---|
-| `EmptyTableNull` (default) | `{"foo":null}` |
-| `EmptyTableOmit` | `{}` (key omitted) |
-| `EmptyTableArray` | `{"foo":[]}` |
-| `EmptyTableObject` | `{"foo":{}}` |
+| `null` (default) | `{"foo":null}` |
+| `omit` | `{}` (key omitted) |
+| `array` | `{"foo":[]}` |
+| `object` | `{"foo":{}}` |
 
 Both `{}` and whitespace-only tables (like `{\n}`) are treated the same way under all modes. The mode applies everywhere empty tables appear — top-level values, nested table values, and elements inside arrays.
 
-## CLI
+<details>
+<summary>Syntax by language</summary>
 
+**Rust:**
+```rust
+config.empty_table_mode = EmptyTableMode::Array;
+```
+
+**Go:**
+```go
+luadata.WithEmptyTableMode("array")
+```
+
+**Python:**
+```python
+lua_to_json(text, empty_table="array")
+```
+
+**CLI:**
 ```bash
-make build
-
-bin/cli/luadata tojson config.lua
-
-cat config.lua | bin/cli/luadata tojson -
+luadata tojson file.lua --empty-table array
 ```
 
-## API reference
-
-Parse into `KeyValuePairs`:
-
-| Function                              | Description                        |
-|---------------------------------------|------------------------------------|
-| `ParseFile(path, ...Option)`          | Parse a `.lua` file from disk      |
-| `ParseText(name, text, ...Option)`    | Parse Lua data from a string       |
-| `ParseReader(name, reader, ...Option)`| Parse Lua data from an `io.Reader` |
-
-Convert to JSON (`io.Reader`):
-
-| Function                              | Description                     |
-|---------------------------------------|---------------------------------|
-| `FileToJSON(path, ...Option)`         | File to JSON                    |
-| `TextToJSON(name, text, ...Option)`   | String to JSON                  |
-| `ReaderToJSON(name, reader, ...Option)`| `io.Reader` to JSON            |
-| `ToJSON(luaBytes, ...Option)`         | `[]byte` to JSON                |
-
-Accessors on `KeyValuePairs`:
-
-| Method                                     | Return type      |
-|--------------------------------------------|------------------|
-| `GetString(key)` / `MaybeGetString(key)`   | `string`         |
-| `GetInt(key)` / `MaybeGetInt(key)`         | `int64`          |
-| `GetFloat(key)` / `MaybeGetFloat(key)`     | `float64`        |
-| `GetBool(key)` / `MaybeGetBool(key)`       | `bool`           |
-| `GetTable(key)` / `MaybeGetTable(key)`     | `KeyValuePairs`  |
-| `Len()`                                    | `int`            |
-| `Pairs()`                                  | `[]KeyValuePair` |
-
-## WebAssembly
-
-The converter is available as a WebAssembly module:
-
-```bash
-make build-wasm  # outputs to bin/web/
+**WASM:**
+```javascript
+convert(text, { emptyTable: "array" })
 ```
 
-Load from JavaScript:
-
-```html
-<script src="wasm_exec.js"></script>
-<script>
-const go = new Go();
-WebAssembly.instantiateStreaming(fetch("luadata.wasm"), go.importObject).then((result) => {
-    go.run(result.instance);
-
-    const output = convertLuaDataToJson('playerName = "Thrall"');
-    if (output.error) {
-        console.error(output.error);
-    } else {
-        console.log(JSON.parse(output.result));
-    }
-});
-</script>
-```
-
-> **Note:** `wasm_exec.js` must come from the same Go version used to compile the `.wasm` file.
-
-A ready-made web interface is also included:
-
-```bash
-make serve
-# Opens at http://localhost:8080
-```
+</details>
 
 ## Development
 
-### Setup
+### Prerequisites
 
-Install development tools (requires Go):
+- [Rust](https://rustup.rs/) (stable)
+- [Go](https://go.dev/) 1.26+
+- [gofumpt](https://github.com/mvdan/gofumpt) v0.9.0 (installed by `make setup`)
+
+Optional (for Python development):
+- [uv](https://docs.astral.sh/uv/) — Python package manager
+- [maturin](https://www.maturin.rs/) — PyO3 build tool
+
+### Setup
 
 ```
 make setup
 ```
 
-This installs:
-- [golangci-lint](https://golangci-lint.run/) v2.11.3 — linter aggregator
-- [gofumpt](https://github.com/mvdan/gofumpt) v0.9.0 — stricter gofmt
+This installs `gofumpt` and the Rust `clippy`/`rustfmt` components.
 
 ### Running checks locally
 
@@ -299,24 +379,30 @@ This installs:
 make check
 ```
 
-Runs build, tests, and lint — the same checks as the GitHub Actions workflow.
+Runs build, Rust tests, lint, format check, and testdata validation.
 
-| Command        | Description                      |
-|----------------|----------------------------------|
-| `make test`    | Run tests                        |
-| `make lint`    | Run golangci-lint (includes fmt) |
-| `make fmt`     | Format code with gofumpt         |
-| `make check`   | Run build + test + lint          |
-| `make setup`   | Install dev tools                |
+| Command               | Description                               |
+|-----------------------|-------------------------------------------|
+| `make test`           | Run Rust + Go tests                       |
+| `make test-rust`      | Run Rust tests only                       |
+| `make test-go`        | Build clib and run Go tests               |
+| `make test-python`    | Build Python module and run pytest        |
+| `make lint`           | Run clippy                                |
+| `make fmt`            | Format Rust and Go code                   |
+| `make fmt-check`      | Check formatting without modifying        |
+| `make check`          | Build + test + lint + fmt-check + validate|
 
 ### Building
 
-| Command            | Description                            |
-|--------------------|----------------------------------------|
-| `make build`       | Build CLI binary to `bin/cli/luadata`  |
-| `make build-wasm`  | Build WebAssembly module to `bin/web/` |
-| `make serve`       | Build WASM and serve web UI on `:8080` |
-| `make clean`       | Remove `bin/` directory                |
+| Command               | Description                               |
+|-----------------------|-------------------------------------------|
+| `make build`          | Build CLI binary to `bin/cli/luadata`     |
+| `make build-clib`     | Build C shared library to `bin/clib/`     |
+| `make build-clib-go`  | Build clib and copy to Go embed location  |
+| `make build-wasm`     | Build WebAssembly module to `bin/web/`    |
+| `make build-site`     | Build WASM + docs site                    |
+| `make serve`          | Build site and serve on `:8080`           |
+| `make clean`          | Remove `bin/` and `target/` directories   |
 
 ### Releasing
 
@@ -326,7 +412,7 @@ To push a new patch release (the most common case), run:
 make release
 ```
 
-This finds the latest semver tag, bumps the patch version (e.g. `v0.1.0` → `v0.1.1`), and asks for confirmation before creating the git tag, pushing it, and creating a GitHub release.
+This tags an RC on `main`, which triggers CI to cross-compile the Rust shared library for all platforms, run tests, create the release branch with embedded libraries, and publish the GitHub Release.
 
 For other version bumps, set `BUMP`:
 
@@ -337,4 +423,4 @@ For other version bumps, set `BUMP`:
 | `make release BUMP=major`   | Major bump, resets minor and patch |
 | `make release BUMP=manual`  | Prompt for an exact version string |
 
-Requires the [GitHub CLI](https://cli.github.com/) (`gh`) for creating GitHub releases.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for details on the release workflow and Go consumer model.

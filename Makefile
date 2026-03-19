@@ -5,27 +5,59 @@ BUMP ?= patch
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	SHARED_EXT := .dylib
+	SHARED_PREFIX := lib
 else ifeq ($(UNAME_S),Linux)
 	SHARED_EXT := .so
+	SHARED_PREFIX := lib
 else
 	SHARED_EXT := .dll
+	SHARED_PREFIX :=
 endif
 
-.PHONY: build build-clib build-wasm build-docs build-site serve clean test test-python lint fmt fmt-check check setup release validate validate-testdata
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_M),x86_64)
+	GO_PLATFORM := $(shell echo $(UNAME_S) | tr A-Z a-z)_amd64
+else ifeq ($(UNAME_M),arm64)
+	GO_PLATFORM := $(shell echo $(UNAME_S) | tr A-Z a-z)_arm64
+else ifeq ($(UNAME_M),aarch64)
+	GO_PLATFORM := $(shell echo $(UNAME_S) | tr A-Z a-z)_arm64
+endif
+
+.PHONY: build build-clib build-wasm build-npm build-docs build-site serve clean \
+	test test-rust test-go test-python \
+	lint fmt fmt-check check setup release validate validate-testdata
+
+# ── Rust targets ──────────────────────────────────────────────────
 
 build:
-	go build -o bin/cli/luadata ./cmd/luadata
+	cargo build -p luadata_cli --release
+	mkdir -p bin/cli
+	cp target/release/luadata bin/cli/
 
 build-clib:
-	go build -buildmode=c-shared -o bin/clib/libluadata$(SHARED_EXT) ./clib
+	cargo build -p luadata_clib --release
+	mkdir -p bin/clib
+	cp target/release/$(SHARED_PREFIX)luadata_clib$(SHARED_EXT) bin/clib/$(SHARED_PREFIX)luadata$(SHARED_EXT)
+
+build-clib-go: build-clib
+	mkdir -p go/internal/ffi/lib/$(GO_PLATFORM)
+	cp bin/clib/$(SHARED_PREFIX)luadata$(SHARED_EXT) go/internal/ffi/lib/$(GO_PLATFORM)/
+
+SITE_VERSION ?= dev
 
 build-wasm:
-	GOOS=js GOARCH=wasm go build -o bin/web/luadata.wasm ./cmd/wasm
-	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/web/
-	cp web/index.html web/luadata.js web/app.js bin/web/
+	cargo install wasm-pack 2>/dev/null || true
+	wasm-pack build wasm --target web --out-dir ../bin/web/pkg
+	cp web/luadata.js web/app.js bin/web/
+	sed 's/__VERSION__/$(SITE_VERSION)/' web/index.html > bin/web/index.html
+
+build-npm:
+	cargo install wasm-pack 2>/dev/null || true
+	wasm-pack build wasm --target bundler --out-dir ../npm/wasm
+	rm -f npm/wasm/package.json npm/wasm/.gitignore
 
 build-docs:
-	go run ./web/docs/gen -out bin/web/docs
+	cd web/docs/gen && go run . -out ../../../bin/web/docs
 
 build-site: build-wasm build-docs
 
@@ -35,29 +67,47 @@ serve: build-site
 	cd bin/web && python3 -m http.server 8080
 
 clean:
-	rm -rf bin
+	rm -rf bin target npm/wasm
 
-test:
-	go test ./...
+# ── Test targets ──────────────────────────────────────────────────
 
-test-python: build-clib
-	cd python && python3 -m pytest tests -v
+test: test-rust test-go
+
+test-rust:
+	cargo test -p luadata
+
+test-go: build-clib
+	LUADATA_LIB_PATH=$(CURDIR)/bin/clib/$(SHARED_PREFIX)luadata$(SHARED_EXT) \
+		go test -C go -v ./...
+
+test-python:
+	cd python && uv run --extra test maturin develop
+	cd python && uv run --extra test pytest tests -v
+
+# ── Lint / format ─────────────────────────────────────────────────
 
 lint:
-	golangci-lint run ./...
+	cargo clippy --workspace -- -D warnings
 
 fmt:
-	gofumpt -w .
+	cargo fmt --all
+	gofumpt -w go/
 
 fmt-check:
-	@test -z "$$(gofumpt -d .)" || (echo "files need formatting — run 'make fmt'" && gofumpt -d . && exit 1)
+	@cargo fmt --all -- --check
+	@test -z "$$(gofumpt -d go/)" || (echo "files need formatting — run 'make fmt'" && gofumpt -d go/ && exit 1)
 
-check: build test lint fmt-check validate-testdata
-	GOOS=js GOARCH=wasm go vet ./cmd/wasm
+check: build test-rust lint fmt-check validate-testdata
+	cargo check -p luadata_python
+	cargo check -p luadata-wasm
+
+# ── Setup ─────────────────────────────────────────────────────────
 
 setup:
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	go install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)
+	rustup component add clippy rustfmt
+
+# ── Validate ──────────────────────────────────────────────────────
 
 validate: build
 	@PATH="$(CURDIR)/bin/cli:$(PATH)" bash scripts/validate-folder.sh $(VALIDATE_FLAGS) $(DIR)
@@ -65,6 +115,8 @@ validate: build
 validate-testdata: build
 	@PATH="$(CURDIR)/bin/cli:$(PATH)" bash scripts/validate-folder.sh testdata/valid
 	@PATH="$(CURDIR)/bin/cli:$(PATH)" bash scripts/validate-folder.sh --expect-fail testdata/invalid
+
+# ── Release ───────────────────────────────────────────────────────
 
 release:
 	@bash scripts/release.sh $(BUMP)
