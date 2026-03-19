@@ -1,0 +1,26 @@
+[workspace]
+members = [
+    "clib",
+    "python",
+    "wasm",
+    "cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.5.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/mmobeus/luadata"
+
+[package]
+name = "luadata"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Parse Lua data files and convert to JSON"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
