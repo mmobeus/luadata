@@ -161,9 +161,9 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "itoa"
-version = "1.0.17"
+version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
+checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "js-sys"
@@ -183,7 +183,7 @@ checksum = "b5b646652bf6661599e1da8901b3b9522896f01e736bad5f723fe7a3a27f899d"
 
 [[package]]
 name = "luadata"
-version = "0.1.2"
+version = "0.1.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "luadata-wasm"
-version = "0.1.2"
+version = "0.1.6"
 dependencies = [
  "js-sys",
  "luadata",
@@ -203,7 +203,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_cli"
-version = "0.1.2"
+version = "0.1.6"
 dependencies = [
  "clap",
  "luadata",
@@ -211,7 +211,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_clib"
-version = "0.1.2"
+version = "0.1.6"
 dependencies = [
  "luadata",
  "serde",
@@ -220,7 +220,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_python"
-version = "0.1.2"
+version = "0.1.6"
 dependencies = [
  "luadata",
  "pyo3",
