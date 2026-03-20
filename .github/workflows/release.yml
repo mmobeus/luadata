@@ -207,10 +207,10 @@ jobs:
       - name: List packages
         run: ls -la dist/
 
-      # - name: Publish to PyPI
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     packages-dir: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
   publish-npm:
     needs: test-and-release
@@ -242,9 +242,9 @@ jobs:
           wasm-pack build wasm --target bundler --out-dir ../npm/wasm
           rm -f npm/wasm/package.json npm/wasm/.gitignore
 
-      # - name: Publish to npm
-      #   working-directory: npm
-      #   run: npm publish --access public
+      - name: Publish to npm
+        working-directory: npm
+        run: npm publish --access public
 
   publish-crates:
     needs: test-and-release
@@ -261,14 +261,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      # - name: Authenticate with crates.io
-      #   id: auth
-      #   uses: rust-lang/crates-io-auth-action@v1
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
 
-      # - name: Publish to crates.io
-      #   run: cargo publish -p luadata
-      #   env:
-      #     CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+      - name: Publish to crates.io
+        run: cargo publish -p luadata
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
   bump-main-version:
     needs: test-and-release
