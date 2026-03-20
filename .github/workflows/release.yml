@@ -282,12 +282,15 @@ jobs:
         with:
           ref: main
 
+      - uses: dtolnay/rust-toolchain@stable
+
       - name: Bump version files
         run: |
           TAG="${{ needs.test-and-release.outputs.release_tag }}"
           VERSION="${TAG#v}"
           sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
           sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" npm/package.json
+          cargo generate-lockfile
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Create PR
@@ -298,7 +301,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add Cargo.toml npm/package.json
+          git add Cargo.toml npm/package.json Cargo.lock
           git commit -m "Bump version to ${VERSION} after release"
           git push origin "$BRANCH"
           gh pr create \

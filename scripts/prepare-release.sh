@@ -34,6 +34,9 @@ sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
 rm -f Cargo.toml.bak
 echo "  updated: Cargo.toml"
 
+cargo generate-lockfile
+echo "  updated: Cargo.lock"
+
 sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" npm/package.json
 rm -f npm/package.json.bak
 echo "  updated: npm/package.json"
@@ -112,6 +115,7 @@ git config user.email "github-actions[bot]@users.noreply.github.com"
 
 git checkout -B release
 git add Cargo.toml
+git add Cargo.lock
 git add npm/package.json
 git add "$FFI_DIR/"
 git add go/.gitignore
