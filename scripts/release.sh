@@ -68,9 +68,18 @@ INFLIGHT_VERSION=""
 
 if [ -n "$LATEST_ANY_RC" ]; then
 	INFLIGHT_VERSION="${LATEST_ANY_RC%%-rc.*}"
-	# Check if a final release exists for this version
-	if git tag --list "$INFLIGHT_VERSION" | grep -q .; then
-		INFLIGHT_VERSION="" # final release exists, not in-flight
+	# Check if a completed GitHub Release exists for this version.
+	# The git tag may exist (prepare-release.sh creates it) even if the
+	# release failed partway through, so we check the actual release.
+	if command -v gh &>/dev/null; then
+		if gh release view "$INFLIGHT_VERSION" &>/dev/null; then
+			INFLIGHT_VERSION="" # GitHub Release exists, not in-flight
+		fi
+	else
+		# No gh CLI — fall back to tag check
+		if git tag --list "$INFLIGHT_VERSION" | grep -q .; then
+			INFLIGHT_VERSION=""
+		fi
 	fi
 fi
 
