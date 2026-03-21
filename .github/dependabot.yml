@@ -2,7 +2,7 @@ version: 2
 updates:
   # Go modules
   - package-ecosystem: 'gomod'
-    directory: '/'
+    directory: '/go'
     schedule:
       interval: 'weekly'
       day: 'monday'
@@ -11,6 +11,51 @@ updates:
     labels:
       - 'dependencies'
       - 'go'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+
+  # Rust/Cargo
+  - package-ecosystem: 'cargo'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'rust'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+
+  # Python/pip
+  - package-ecosystem: 'pip'
+    directory: '/python'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'python'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+
+  # npm
+  - package-ecosystem: 'npm'
+    directory: '/npm'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'npm'
     commit-message:
       prefix: 'chore'
       include: 'scope'
