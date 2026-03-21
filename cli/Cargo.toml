@@ -3,11 +3,14 @@ name = "luadata_cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+description = "CLI tool to parse Lua data files and convert to JSON"
+include = ["src/**", "Cargo.toml", "LICENSE", "README.md"]
 
 [[bin]]
 name = "luadata"
 path = "src/main.rs"
 
 [dependencies]
-luadata = { path = ".." }
+luadata = { version = "0.1.8", path = ".." }
 clap = { version = "4", features = ["derive"] }
