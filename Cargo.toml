@@ -4,6 +4,7 @@ members = [
     "python",
     "wasm",
     "cli",
+    "node",
 ]
 resolver = "2"
 

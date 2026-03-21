@@ -1,0 +1,13 @@
+{
+  "name": "@mmobeus/luadata-linux-arm64-gnu",
+  "version": "0.1.11",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "main": "luadata.linux-arm64-gnu.node",
+  "files": ["luadata.linux-arm64-gnu.node"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmobeus/luadata"
+  }
+}

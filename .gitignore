@@ -5,5 +5,5 @@ wheels/
 .venv/
 .claude
 
-# wasm-pack output inside npm package (built at release time)
-npm/wasm/
+# wasm-pack output inside node-wasm package (built at release time)
+node-wasm/wasm/

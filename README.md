@@ -1,6 +1,6 @@
 # luadata
 
-A Lua data parser with Rust, Go, Python, CLI, and WebAssembly interfaces. Useful for working with game addon data files like World of Warcraft SavedVariables.
+A Lua data parser with Rust, Go, Python, Node.js, CLI, and WebAssembly interfaces. Useful for working with game addon data files like World of Warcraft SavedVariables.
 
 **[Luadata by Example](https://mmobeus.github.io/luadata/docs/)** — A guided tour of all features with interactive examples.
 
@@ -86,6 +86,36 @@ data = lua_to_dict(lua_string,
 )
 ```
 
+### Node.js
+
+```
+npm install @mmobeus/luadata
+```
+
+```javascript
+import { convertLuaToJson, convertLuaFileToJson } from "@mmobeus/luadata";
+
+// Convert Lua data to a JSON string
+const json = convertLuaToJson('playerName = "Thrall"');
+
+// Parse into an object
+const data = JSON.parse(convertLuaToJson(luaString));
+
+// Convert a file
+const json = convertLuaFileToJson("config.lua");
+
+// With options
+const json = convertLuaToJson(luaString, {
+    emptyTable: "array",
+    arrayMode: "sparse",
+    arrayMaxGap: 10,
+    stringTransform: { maxLen: 1024, mode: "truncate" },
+});
+```
+
+The package includes TypeScript type definitions. No initialization step required
+— functions are synchronous and call the native Rust parser directly via N-API.
+
 ### CLI
 
 ```bash
@@ -104,7 +134,9 @@ luadata validate config.lua
 luadata tojson config.lua --empty-table array --array-mode sparse --array-max-gap 10
 ```
 
-### Node.js / TypeScript
+### WebAssembly (bundler)
+
+For browser projects using a bundler (webpack, vite, etc.):
 
 ```
 npm install mmobeus-luadata
@@ -131,7 +163,8 @@ const json = convert(luaString, {
 ```
 
 The package includes TypeScript type definitions. `init()` must be called once
-before `convert()` — it loads the WASM module.
+before `convert()` — it loads the WASM module. For Node.js usage without a
+bundler, use `@mmobeus/luadata` instead.
 
 ### WebAssembly (browser)
 
@@ -261,6 +294,12 @@ luadata tojson file.lua --string-max-len 1024 --string-mode truncate
 luadata tojson file.lua --string-max-len 2048 --string-mode replace --string-replacement "[removed]"
 ```
 
+**Node.js:**
+```javascript
+convertLuaToJson(text, { stringTransform: { maxLen: 1024, mode: "truncate" } })
+convertLuaToJson(text, { stringTransform: { maxLen: 2048, mode: "replace", replacement: "[removed]" } })
+```
+
 **WASM:**
 ```javascript
 convert(text, { stringTransform: { maxLen: 1024, mode: "truncate" } })
@@ -321,6 +360,13 @@ luadata tojson file.lua --array-mode index-only
 luadata tojson file.lua --array-mode none
 ```
 
+**Node.js:**
+```javascript
+convertLuaToJson(text, { arrayMode: "sparse", arrayMaxGap: 0 })
+convertLuaToJson(text, { arrayMode: "index-only" })
+convertLuaToJson(text, { arrayMode: "none" })
+```
+
 **WASM:**
 ```javascript
 convert(text, { arrayMode: "sparse", arrayMaxGap: 0 })
@@ -366,6 +412,11 @@ lua_to_json(text, empty_table="array")
 luadata tojson file.lua --empty-table array
 ```
 
+**Node.js:**
+```javascript
+convertLuaToJson(text, { emptyTable: "array" })
+```
+
 **WASM:**
 ```javascript
 convert(text, { emptyTable: "array" })
@@ -407,6 +458,7 @@ Runs build, Rust tests, lint, format check, and testdata validation.
 | `make test-rust`      | Run Rust tests only                       |
 | `make test-go`        | Build clib and run Go tests               |
 | `make test-python`    | Build Python module and run pytest        |
+| `make test-node`      | Build Node.js addon and run tests         |
 | `make lint`           | Run clippy                                |
 | `make fmt`            | Format Rust and Go code                   |
 | `make fmt-check`      | Check formatting without modifying        |
@@ -419,6 +471,7 @@ Runs build, Rust tests, lint, format check, and testdata validation.
 | `make build`          | Build CLI binary to `bin/cli/luadata`     |
 | `make build-clib`     | Build C shared library to `bin/clib/`     |
 | `make build-clib-go`  | Build clib and copy to Go embed location  |
+| `make build-node`     | Build Node.js native addon                |
 | `make build-wasm`     | Build WebAssembly module to `bin/web/`    |
 | `make build-site`     | Build WASM + docs site                    |
 | `make serve`          | Build site and serve on `:8080`           |

@@ -24,8 +24,9 @@ else ifeq ($(UNAME_M),aarch64)
 endif
 
 .PHONY: build build-clib build-wasm build-npm build-docs build-site serve clean \
-	test test-rust test-go test-python \
-	lint fmt fmt-check check setup release validate validate-testdata smoke-test
+	test test-rust test-go test-python test-node \
+	lint fmt fmt-check check setup release validate validate-testdata smoke-test \
+	build-node
 
 # ── Rust targets ──────────────────────────────────────────────────
 
@@ -51,10 +52,10 @@ build-wasm:
 	cp web/luadata.js web/app.js bin/web/
 	sed 's/__VERSION__/$(SITE_VERSION)/' web/index.html > bin/web/index.html
 
-build-npm:
+build-node-wasm:
 	cargo install wasm-pack 2>/dev/null || true
-	wasm-pack build wasm --target bundler --out-dir ../npm/wasm
-	rm -f npm/wasm/package.json npm/wasm/.gitignore
+	wasm-pack build wasm --target bundler --out-dir ../node-wasm/wasm
+	rm -f node-wasm/wasm/package.json node-wasm/wasm/.gitignore
 
 build-docs:
 	cd web/docs/gen && go run . -out ../../../bin/web/docs
@@ -67,7 +68,7 @@ serve: build-site
 	cd bin/web && python3 -m http.server 8080
 
 clean:
-	rm -rf bin target npm/wasm
+	rm -rf bin target node-wasm/wasm
 
 # ── Test targets ──────────────────────────────────────────────────
 
@@ -83,6 +84,12 @@ test-go: build-clib
 test-python:
 	cd python && uv run --extra test maturin develop
 	cd python && uv run --extra test pytest tests -v
+
+build-node:
+	cd node && npm install && npm run build
+
+test-node: build-node
+	node node/__test__/index.spec.mjs
 
 # ── Lint / format ─────────────────────────────────────────────────
 
@@ -100,6 +107,7 @@ fmt-check:
 check: build test-rust lint fmt-check validate-testdata
 	cargo check -p luadata_python
 	cargo check -p luadata-wasm
+	cargo check -p luadata_node
 
 # ── Setup ─────────────────────────────────────────────────────────
 

@@ -45,9 +45,24 @@ updates:
       prefix: 'chore'
       include: 'scope'
 
-  # npm
+  # npm (WASM browser package)
   - package-ecosystem: 'npm'
-    directory: '/npm'
+    directory: '/node-wasm'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'npm'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+
+  # npm (Node.js native addon)
+  - package-ecosystem: 'npm'
+    directory: '/node'
     schedule:
       interval: 'weekly'
       day: 'monday'
