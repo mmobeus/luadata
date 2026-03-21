@@ -1,6 +1,6 @@
 {
   "name": "mmobeus-luadata",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Parse Lua data files and convert to JSON (WebAssembly)",
   "type": "module",
   "main": "index.js",
