@@ -10,6 +10,7 @@ use luadata::options::{
 #[derive(Parser)]
 #[command(name = "luadata")]
 #[command(about = "Convert Lua data files to JSON")]
+#[command(version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
