@@ -388,7 +388,7 @@ jobs:
 
       - name: Move artifacts to platform packages
         working-directory: node
-        run: npx napi artifacts --dir artifacts
+        run: npx napi artifacts --output-dir artifacts
 
       - name: Publish platform packages
         working-directory: node
