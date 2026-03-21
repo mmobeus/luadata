@@ -66,7 +66,7 @@ luadata/
 │   ├── package.json        Package: @mmobeus/luadata
 │   ├── npm/                Platform-specific packages (5 platforms)
 │   └── __test__/           Node.js test suite
-├── node-wasm/              npm WASM package (mmobeus-luadata)
+├── node-wasm/              npm WASM package (@mmobeus/luadata-wasm)
 │   ├── package.json        Package metadata
 │   ├── index.js            ES module wrapper: init() + convert()
 │   ├── index.d.ts          TypeScript type definitions
@@ -129,7 +129,7 @@ gitignored — local development uses `make build-clib` to populate it, or sets
    - **PyPI**: Builds platform-specific wheels (same five platforms as clib) plus
      an sdist, then publishes `mmobeus-luadata` via `pypa/gh-action-pypi-publish`.
    - **npm (WASM)**: Builds the WASM module with wasm-pack, packages it with the
-     JS/TS wrapper from `npm/`, and publishes `mmobeus-luadata`.
+     JS/TS wrapper from `node-wasm/`, and publishes `@mmobeus/luadata-wasm`.
    - **npm (native)**: Downloads cross-compiled napi-rs `.node` binaries (same
      five platforms), distributes them to platform packages under `napi/npm/`,
      and publishes `@mmobeus/luadata` plus five platform-specific packages

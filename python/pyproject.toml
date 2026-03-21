@@ -6,6 +6,7 @@ build-backend = "maturin"
 name = "mmobeus-luadata"
 dynamic = ["version"]
 description = "Convert Lua data files (e.g. WoW SavedVariables) to JSON/Python objects"
+readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 

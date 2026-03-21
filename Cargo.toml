@@ -21,7 +21,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Parse Lua data files and convert to JSON"
-include = ["src/**", "Cargo.toml", "LICENSE", "README.md"]
+readme = "CRATE_README.md"
+include = ["src/**", "Cargo.toml", "LICENSE", "CRATE_README.md"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

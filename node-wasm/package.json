@@ -1,5 +1,5 @@
 {
-  "name": "mmobeus-luadata",
+  "name": "@mmobeus/luadata-wasm",
   "version": "0.1.13",
   "description": "Parse Lua data files and convert to JSON (WebAssembly)",
   "type": "module",
@@ -10,7 +10,8 @@
     "index.d.ts",
     "wasm/luadata_wasm_bg.wasm",
     "wasm/luadata_wasm.js",
-    "wasm/luadata_wasm.d.ts"
+    "wasm/luadata_wasm.d.ts",
+    "README.md"
   ],
   "keywords": [
     "lua",
