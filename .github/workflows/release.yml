@@ -268,7 +268,10 @@ jobs:
         uses: rust-lang/crates-io-auth-action@v1
 
       - name: Publish to crates.io
-        run: cargo publish -p luadata
+        run: |
+          cargo publish -p luadata
+          sleep 30
+          cargo publish -p luadata_cli
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
@@ -291,6 +294,7 @@ jobs:
           TAG="${{ needs.test-and-release.outputs.release_tag }}"
           VERSION="${TAG#v}"
           sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
+          sed -i "s/luadata = { version = \"[^\"]*\"/luadata = { version = \"${VERSION}\"/" cli/Cargo.toml
           sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" npm/package.json
           cargo generate-lockfile
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
@@ -303,7 +307,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add Cargo.toml npm/package.json Cargo.lock
+          git add Cargo.toml cli/Cargo.toml npm/package.json Cargo.lock
           git commit -m "Bump version to ${VERSION} after release"
           git push origin "$BRANCH"
           gh pr create \
