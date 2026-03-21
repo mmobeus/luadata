@@ -131,7 +131,7 @@ jobs:
           path: node/*.node
 
   test-and-release:
-    needs: [build-clib, build-cli, build-node]
+    needs: [build-clib, build-cli]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -359,7 +359,7 @@ jobs:
           NODE_AUTH_TOKEN: ""
 
   publish-node:
-    needs: test-and-release
+    needs: [test-and-release, build-node]
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -131,7 +131,9 @@ git checkout -B release
 git add Cargo.toml
 git add Cargo.lock
 git add cli/Cargo.toml
-git add npm/package.json
+git add node-wasm/package.json
+git add node/package.json
+git add node/npm/
 git add "$FFI_DIR/"
 git add go/.gitignore
 git commit -m "Release ${RELEASE_TAG}: embed shared libraries and set version"
