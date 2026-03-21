@@ -1,6 +1,6 @@
 {
   "name": "@mmobeus/luadata",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Parse Lua data files and convert to JSON (native Node.js addon)",
   "main": "index.js",
   "types": "index.d.ts",
@@ -26,11 +26,11 @@
     "@napi-rs/cli": "^3.4.0"
   },
   "optionalDependencies": {
-    "@mmobeus/luadata-linux-x64-gnu": "0.1.11",
-    "@mmobeus/luadata-linux-arm64-gnu": "0.1.11",
-    "@mmobeus/luadata-darwin-x64": "0.1.11",
-    "@mmobeus/luadata-darwin-arm64": "0.1.11",
-    "@mmobeus/luadata-win32-x64-msvc": "0.1.11"
+    "@mmobeus/luadata-linux-x64-gnu": "0.1.12",
+    "@mmobeus/luadata-linux-arm64-gnu": "0.1.12",
+    "@mmobeus/luadata-darwin-x64": "0.1.12",
+    "@mmobeus/luadata-darwin-arm64": "0.1.12",
+    "@mmobeus/luadata-win32-x64-msvc": "0.1.12"
   },
   "license": "MIT",
   "repository": {

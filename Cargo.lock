@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "luadata"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "serde",
  "serde_json",
@@ -320,7 +320,7 @@ dependencies = [
 
 [[package]]
 name = "luadata-wasm"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "js-sys",
  "luadata",
@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_cli"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "clap",
  "luadata",
@@ -340,7 +340,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_clib"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "luadata",
  "serde",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_node"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "luadata",
  "napi",
@@ -359,7 +359,7 @@ dependencies = [
 
 [[package]]
 name = "luadata_python"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "luadata",
  "pyo3",

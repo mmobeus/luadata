@@ -12,5 +12,5 @@ name = "luadata"
 path = "src/main.rs"
 
 [dependencies]
-luadata = { version = "0.1.11", path = ".." }
+luadata = { version = "0.1.12", path = ".." }
 clap = { version = "4", features = ["derive"] }
