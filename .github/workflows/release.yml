@@ -54,8 +54,41 @@ jobs:
           name: clib-${{ matrix.platform }}
           path: target/${{ matrix.target }}/release/${{ matrix.lib_name }}
 
+  build-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            platform: darwin_amd64
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            platform: darwin_arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build CLI
+        run: cargo build -p luadata_cli --release --target ${{ matrix.target }}
+
+      - name: Create tarball
+        run: tar -czf luadata-${{ matrix.platform }}.tar.gz -C target/${{ matrix.target }}/release luadata
+
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-${{ matrix.platform }}
+          path: luadata-${{ matrix.platform }}.tar.gz
+
   test-and-release:
-    needs: build-clib
+    needs: [build-clib, build-cli]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -97,6 +130,19 @@ jobs:
       - name: Prepare release branch and tag
         run: bash scripts/prepare-release.sh "${{ steps.release_tag.outputs.tag }}" clib-artifacts
 
+      - name: Download CLI binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cli-*
+          path: cli-artifacts
+          merge-multiple: true
+
+      - name: Compute CLI SHA256 sums
+        id: cli_sha
+        run: |
+          echo "darwin_amd64=$(shasum -a 256 cli-artifacts/luadata-darwin_amd64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "darwin_arm64=$(shasum -a 256 cli-artifacts/luadata-darwin_arm64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Rename artifacts with platform
         run: |
           for dir in clib-artifacts/clib-*; do
@@ -116,7 +162,28 @@ jobs:
           gh release create "${{ steps.release_tag.outputs.tag }}" \
             --title "${{ steps.release_tag.outputs.tag }}" \
             --generate-notes \
-            clib-artifacts/clib-*/*
+            clib-artifacts/clib-*/* \
+            cli-artifacts/luadata-*.tar.gz
+
+      - name: Generate GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.HOMEBREW_APP_ID }}
+          private-key: ${{ secrets.HOMEBREW_APP_PRIVATE_KEY }}
+          owner: mmobeus
+          repositories: homebrew-tap
+
+      - name: Update Homebrew formula
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          VERSION="${{ steps.release_tag.outputs.tag }}"
+          gh api repos/mmobeus/homebrew-tap/dispatches \
+            -f event_type=update-formula \
+            -f "client_payload[version]=${VERSION}" \
+            -f "client_payload[sha256_amd64]=${{ steps.cli_sha.outputs.darwin_amd64 }}" \
+            -f "client_payload[sha256_arm64]=${{ steps.cli_sha.outputs.darwin_arm64 }}"
 
   build-python-wheels:
     needs: test-and-release
