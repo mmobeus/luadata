@@ -115,7 +115,7 @@ test_npm() {
   echo "  Testing $name..."
 
   cat > "$dir/package.json" <<EOF
-{"dependencies": {"mmobeus-luadata": "$VERSION"}}
+{"dependencies": {"@mmobeus/luadata-wasm": "$VERSION"}}
 EOF
 
   local output
@@ -126,7 +126,7 @@ EOF
 
   # Verify expected files exist (WASM package requires a bundler to run,
   # so we check structure rather than executing)
-  local pkg="$dir/node_modules/mmobeus-luadata"
+  local pkg="$dir/node_modules/@mmobeus/luadata-wasm"
   local missing=()
   for f in index.js index.d.ts wasm/luadata_wasm.js wasm/luadata_wasm_bg.wasm; do
     [[ -f "$pkg/$f" ]] || missing+=("$f")

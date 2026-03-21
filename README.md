@@ -8,185 +8,87 @@ A Lua data parser with Rust, Go, Python, Node.js, CLI, and WebAssembly interface
 
 ## Usage
 
-### Rust
+### Rust — [`luadata`](https://crates.io/crates/luadata)
 
 ```
 cargo add luadata
 ```
 
 ```rust
-use luadata::{text_to_json, file_to_json, ParseConfig};
-
-// From a string
-let json = text_to_json("input", r#"playerName = "Thrall""#, ParseConfig::new())?;
-
-// From a file
-let json = file_to_json("config.lua", ParseConfig::new())?;
-
-// With options
-let mut config = ParseConfig::new();
-config.array_mode = Some(luadata::options::ArrayMode::IndexOnly);
-config.empty_table_mode = luadata::options::EmptyTableMode::Array;
-let json = text_to_json("input", lua_string, config)?;
+let json = luadata::text_to_json("input", r#"playerName = "Thrall""#, ParseConfig::new())?;
 ```
 
-### Go
+See [CRATE_README.md](CRATE_README.md) for full docs.
+
+### Go — [`github.com/mmobeus/luadata/go`](go/)
 
 ```
 go get github.com/mmobeus/luadata/go
 ```
 
 ```go
-import luadata "github.com/mmobeus/luadata/go"
-
-// From a string
 reader, err := luadata.TextToJSON("input", luaString)
-
-// From a file
-reader, err := luadata.FileToJSON("config.lua")
-
-// From bytes
-reader, err := luadata.ToJSON(luaBytes)
-
-// From an io.Reader
-reader, err := luadata.ReaderToJSON("input", r)
-
-// With options
-reader, err := luadata.TextToJSON("input", luaString,
-    luadata.WithArrayMode("sparse", 10),
-    luadata.WithEmptyTableMode("array"),
-    luadata.WithStringTransform(1024, "truncate"),
-)
 ```
 
-All functions return an `io.Reader` containing JSON.
+All functions return an `io.Reader` containing JSON. See [go/README.md](go/README.md) for full docs.
 
-### Python
+### Python — [`mmobeus-luadata`](https://pypi.org/project/mmobeus-luadata/)
 
 ```
 pip install mmobeus-luadata
 ```
 
 ```python
-from luadata import lua_to_json, lua_to_dict
-
-# Get JSON string
-json_str = lua_to_json('playerName = "Thrall"')
-
-# Get Python dict
 data = lua_to_dict('playerName = "Thrall"')
-
-# With options
-data = lua_to_dict(lua_string,
-    array_mode="sparse",
-    array_max_gap=10,
-    empty_table="array",
-    string_max_len=1024,
-    string_mode="truncate",
-)
 ```
 
-### Node.js
+See [python/README.md](python/README.md) for full docs.
+
+### Node.js — [`@mmobeus/luadata`](https://www.npmjs.com/package/@mmobeus/luadata)
 
 ```
 npm install @mmobeus/luadata
 ```
 
 ```javascript
-import { convertLuaToJson, convertLuaFileToJson } from "@mmobeus/luadata";
-
-// Convert Lua data to a JSON string
 const json = convertLuaToJson('playerName = "Thrall"');
-
-// Parse into an object
-const data = JSON.parse(convertLuaToJson(luaString));
-
-// Convert a file
-const json = convertLuaFileToJson("config.lua");
-
-// With options
-const json = convertLuaToJson(luaString, {
-    emptyTable: "array",
-    arrayMode: "sparse",
-    arrayMaxGap: 10,
-    stringTransform: { maxLen: 1024, mode: "truncate" },
-});
 ```
 
-The package includes TypeScript type definitions. No initialization step required
-— functions are synchronous and call the native Rust parser directly via N-API.
+Synchronous, native Rust via N-API. See [node/README.md](node/README.md) for full docs.
 
-### CLI
+### CLI — [`luadata_cli`](https://crates.io/crates/luadata_cli)
+
+```
+brew install mmobeus/tap/luadata
+```
 
 ```bash
-make build
-
-# Convert a file
 luadata tojson config.lua
-
-# Read from stdin
-cat config.lua | luadata tojson -
-
-# Validate without converting
-luadata validate config.lua
-
-# With options
-luadata tojson config.lua --empty-table array --array-mode sparse --array-max-gap 10
 ```
 
-### WebAssembly (bundler)
+See [cli/README.md](cli/README.md) for full docs.
+
+### WebAssembly — [`@mmobeus/luadata-wasm`](https://www.npmjs.com/package/@mmobeus/luadata-wasm)
 
 For browser projects using a bundler (webpack, vite, etc.):
 
 ```
-npm install mmobeus-luadata
+npm install @mmobeus/luadata-wasm
 ```
 
 ```typescript
-import { init, convert } from "mmobeus-luadata";
-
+import { init, convert } from "@mmobeus/luadata-wasm";
 await init();
-
-// Convert Lua data to a JSON string
 const json = convert('playerName = "Thrall"');
-
-// Parse into an object
-const data = JSON.parse(convert(luaString));
-
-// With options
-const json = convert(luaString, {
-    emptyTable: "array",
-    arrayMode: "sparse",
-    arrayMaxGap: 10,
-    stringTransform: { maxLen: 1024, mode: "truncate" },
-});
 ```
 
-The package includes TypeScript type definitions. `init()` must be called once
-before `convert()` — it loads the WASM module. For Node.js usage without a
-bundler, use `@mmobeus/luadata` instead.
+See [node-wasm/README.md](node-wasm/README.md) for full docs. For Node.js without a bundler, use `@mmobeus/luadata` instead.
 
-### WebAssembly (browser)
-
-For direct browser usage without a bundler, the WASM module can be loaded as an
-ES module:
+For direct browser usage without a bundler:
 
 ```bash
 make build-wasm  # outputs to bin/web/
-```
-
-```javascript
-import { init, convert } from "./luadata.js";
-
-await init();
-const json = convert('playerName = "Thrall"');
-```
-
-A ready-made web interface is also included:
-
-```bash
-make serve
-# Opens at http://localhost:8080
+make serve       # opens at http://localhost:8080
 ```
 
 ## Lua data format

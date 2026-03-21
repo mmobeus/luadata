@@ -1,7 +1,7 @@
-// mmobeus-luadata — Parse Lua data files and convert to JSON.
+// @mmobeus/luadata-wasm — Parse Lua data files and convert to JSON.
 //
 // Usage:
-//   import { init, convert } from "mmobeus-luadata";
+//   import { init, convert } from "@mmobeus/luadata-wasm";
 //   await init();
 //   const json = convert('playerName = "Thrall"');
 
