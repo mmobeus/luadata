@@ -25,7 +25,7 @@ endif
 
 .PHONY: build build-clib build-wasm build-npm build-docs build-site serve clean \
 	test test-rust test-go test-python \
-	lint fmt fmt-check check setup release validate validate-testdata
+	lint fmt fmt-check check setup release validate validate-testdata smoke-test
 
 # ── Rust targets ──────────────────────────────────────────────────
 
@@ -120,3 +120,6 @@ validate-testdata: build
 
 release:
 	@bash scripts/release.sh $(BUMP)
+
+smoke-test:
+	@bash scripts/smoke-test-release.sh $(VERSION)

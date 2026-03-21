@@ -126,7 +126,8 @@ git add "$FFI_DIR/"
 git add go/.gitignore
 git commit -m "Release ${RELEASE_TAG}: embed shared libraries and set version"
 git tag "$RELEASE_TAG"
+git tag "go/${RELEASE_TAG}"
 git push origin release --force
-git push origin "$RELEASE_TAG"
+git push origin "$RELEASE_TAG" "go/${RELEASE_TAG}"
 
-echo "Done. Tagged ${RELEASE_TAG} on release branch."
+echo "Done. Tagged ${RELEASE_TAG} and go/${RELEASE_TAG} on release branch."
