@@ -1,0 +1,13 @@
+{
+  "name": "@mmobeus/luadata-darwin-arm64",
+  "version": "0.1.11",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "main": "luadata.darwin-arm64.node",
+  "files": ["luadata.darwin-arm64.node"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmobeus/luadata"
+  }
+}

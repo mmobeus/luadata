@@ -183,6 +183,38 @@ GO
   fi
 }
 
+# ── npm native (napi-rs) ────────────────────────────────────────
+
+test_napi() {
+  local name="npm-native (napi)"
+  if ! has_cmd node || ! has_cmd npm; then skip "$name" "node/npm not found"; return; fi
+
+  local dir
+  dir="$(make_tmpdir)"
+  echo "  Testing $name..."
+
+  cat > "$dir/package.json" <<EOF
+{"dependencies": {"@mmobeus/luadata": "$VERSION"}}
+EOF
+
+  local output
+  if ! output="$(npm install --prefix "$dir" 2>&1)"; then
+    fail "$name" "npm install failed: $output"
+    return
+  fi
+
+  cat > "$dir/test.mjs" <<'JS'
+import { convertLuaToJson } from "@mmobeus/luadata";
+console.log(convertLuaToJson('playerName = "Thrall"'));
+JS
+
+  if output="$(node "$dir/test.mjs" 2>&1)"; then
+    check_output "$name" "$output"
+  else
+    fail "$name" "node run failed: $output"
+  fi
+}
+
 # ── Homebrew (CLI) ──────────────────────────────────────────────
 
 test_homebrew() {
@@ -221,6 +253,7 @@ echo ""
 test_rust
 test_python
 test_npm
+test_napi
 test_go
 test_homebrew
 

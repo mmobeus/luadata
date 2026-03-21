@@ -41,9 +41,19 @@ echo "  updated: cli/Cargo.toml"
 cargo generate-lockfile
 echo "  updated: Cargo.lock"
 
-sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" npm/package.json
-rm -f npm/package.json.bak
-echo "  updated: npm/package.json"
+sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" node-wasm/package.json
+rm -f node-wasm/package.json.bak
+echo "  updated: node-wasm/package.json"
+
+sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" node/package.json
+sed -i.bak "s/\"@mmobeus\/luadata-\([^\"]*\)\": \"[^\"]*\"/\"@mmobeus\/luadata-\1\": \"${VERSION}\"/" node/package.json
+rm -f node/package.json.bak
+echo "  updated: node/package.json"
+for f in node/npm/*/package.json; do
+  sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" "$f"
+  rm -f "$f.bak"
+  echo "  updated: $f"
+done
 
 # ── Stage shared libraries ────────────────────────────────────────
 

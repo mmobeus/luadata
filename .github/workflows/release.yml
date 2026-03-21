@@ -87,8 +87,51 @@ jobs:
           name: cli-${{ matrix.platform }}
           path: luadata-${{ matrix.platform }}.tar.gz
 
+  build-node:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        working-directory: node
+        run: npm install
+
+      - name: Build native module
+        working-directory: node
+        run: npx napi build --platform --release --target ${{ matrix.target }}
+
+      - name: Upload .node artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: node-${{ matrix.target }}
+          path: node/*.node
+
   test-and-release:
-    needs: [build-clib, build-cli]
+    needs: [build-clib, build-cli, build-node]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -304,13 +347,62 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Build WASM into npm package
+      - name: Build WASM into node-wasm package
         run: |
-          wasm-pack build wasm --target bundler --out-dir ../npm/wasm
-          rm -f npm/wasm/package.json npm/wasm/.gitignore
+          wasm-pack build wasm --target bundler --out-dir ../node-wasm/wasm
+          rm -f node-wasm/wasm/package.json node-wasm/wasm/.gitignore
 
       - name: Publish to npm
-        working-directory: npm
+        working-directory: node-wasm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ""
+
+  publish-node:
+    needs: test-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: npm
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.test-and-release.outputs.release_tag }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        working-directory: node
+        run: npm install
+
+      - name: Download all node artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: node-*
+          path: node/artifacts
+
+      - name: Move artifacts to platform packages
+        working-directory: node
+        run: npx napi artifacts --dir artifacts
+
+      - name: Publish platform packages
+        working-directory: node
+        run: |
+          for dir in npm/*/; do
+            if [ -f "$dir/package.json" ] && ls "$dir"/*.node 1>/dev/null 2>&1; then
+              npm publish "$dir" --access public
+            fi
+          done
+        env:
+          NODE_AUTH_TOKEN: ""
+
+      - name: Publish root package
+        working-directory: node
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ""
@@ -362,7 +454,12 @@ jobs:
           VERSION="${TAG#v}"
           sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" Cargo.toml
           sed -i "s/luadata = { version = \"[^\"]*\"/luadata = { version = \"${VERSION}\"/" cli/Cargo.toml
-          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" npm/package.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" node-wasm/package.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" node/package.json
+          for f in node/npm/*/package.json; do
+            sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" "$f"
+          done
+          sed -i "s/\"@mmobeus\/luadata-\([^\"]*\)\": \"[^\"]*\"/\"@mmobeus\/luadata-\1\": \"${VERSION}\"/" node/package.json
           cargo generate-lockfile
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
 
@@ -374,7 +471,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add Cargo.toml cli/Cargo.toml npm/package.json Cargo.lock
+          git add Cargo.toml cli/Cargo.toml node-wasm/package.json node/package.json node/npm/*/package.json Cargo.lock
           git commit -m "Bump version to ${VERSION} after release"
           git push origin "$BRANCH"
           gh pr create \

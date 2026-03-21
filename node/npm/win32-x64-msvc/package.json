@@ -1,0 +1,13 @@
+{
+  "name": "@mmobeus/luadata-win32-x64-msvc",
+  "version": "0.1.11",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "main": "luadata.win32-x64-msvc.node",
+  "files": ["luadata.win32-x64-msvc.node"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmobeus/luadata"
+  }
+}

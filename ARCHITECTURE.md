@@ -1,7 +1,7 @@
 # Architecture
 
 luadata is a Lua data parser written in Rust, with bindings for Go, Python,
-WebAssembly, and a standalone CLI. This document describes the architecture and
+Node.js, WebAssembly, and a standalone CLI. This document describes the architecture and
 the reasoning behind it.
 
 ## Overview
@@ -11,6 +11,7 @@ Rust core library (src/)
 ├── cdylib (clib/)          → C shared library (.so/.dylib/.dll)
 │   └── exports: LuaDataToJSON, LuaDataFree
 ├── PyO3 module (python/)   → native Python extension
+├── napi-rs addon (node/)   → native Node.js addon
 ├── wasm-bindgen (wasm/)    → WebAssembly module (~124KB)
 └── CLI binary (cli/)       → luadata tojson / validate
 
@@ -60,7 +61,12 @@ luadata/
 │   └── tests/              pytest suite
 ├── wasm/                   wasm-bindgen module
 │   └── src/lib.rs          convertLuaDataToJson (JS name)
-├── npm/                    npm package (mmobeus-luadata)
+├── node/                   napi-rs Node.js native addon
+│   ├── src/lib.rs          convertLuaToJson / convertLuaFileToJson
+│   ├── package.json        Package: @mmobeus/luadata
+│   ├── npm/                Platform-specific packages (5 platforms)
+│   └── __test__/           Node.js test suite
+├── node-wasm/              npm WASM package (mmobeus-luadata)
 │   ├── package.json        Package metadata
 │   ├── index.js            ES module wrapper: init() + convert()
 │   ├── index.d.ts          TypeScript type definitions
@@ -122,8 +128,12 @@ gitignored — local development uses `make build-clib` to populate it, or sets
    parallel — all using OIDC trusted publishing (no stored secrets):
    - **PyPI**: Builds platform-specific wheels (same five platforms as clib) plus
      an sdist, then publishes `mmobeus-luadata` via `pypa/gh-action-pypi-publish`.
-   - **npm**: Builds the WASM module with wasm-pack, packages it with the JS/TS
-     wrapper from `npm/`, and publishes `mmobeus-luadata`.
+   - **npm (WASM)**: Builds the WASM module with wasm-pack, packages it with the
+     JS/TS wrapper from `npm/`, and publishes `mmobeus-luadata`.
+   - **npm (native)**: Downloads cross-compiled napi-rs `.node` binaries (same
+     five platforms), distributes them to platform packages under `napi/npm/`,
+     and publishes `@mmobeus/luadata` plus five platform-specific packages
+     (e.g., `@mmobeus/luadata-darwin-arm64`).
    - **crates.io**: Publishes the `luadata` core crate via
      `rust-lang/crates-io-auth-action` for OIDC token exchange.
 
