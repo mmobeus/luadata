@@ -115,16 +115,46 @@ gitignored — local development uses `make build-clib` to populate it, or sets
    generates platform-specific `go:embed` files (replacing `embed_dev.go`), and
    commits everything to the `release` branch with the final version tag.
 
-5. **GitHub Release**: CI creates a GitHub Release with shared library artifacts.
+5. **GitHub Release**: CI creates a GitHub Release with shared library artifacts
+   and CLI binary tarballs (macOS Intel + Apple Silicon).
 
-6. **Publish to registries**: After the release succeeds, three publish jobs run
-   in parallel — all using OIDC trusted publishing (no stored secrets):
+6. **Publish to registries**: After the release succeeds, publish jobs run in
+   parallel — all using OIDC trusted publishing (no stored secrets):
    - **PyPI**: Builds platform-specific wheels (same five platforms as clib) plus
      an sdist, then publishes `mmobeus-luadata` via `pypa/gh-action-pypi-publish`.
    - **npm**: Builds the WASM module with wasm-pack, packages it with the JS/TS
      wrapper from `npm/`, and publishes `mmobeus-luadata`.
    - **crates.io**: Publishes the `luadata` core crate via
      `rust-lang/crates-io-auth-action` for OIDC token exchange.
+
+7. **Homebrew**: After the GitHub Release is created, the workflow dispatches a
+   `repository_dispatch` event to
+   [`mmobeus/homebrew-tap`](https://github.com/mmobeus/homebrew-tap) with the
+   version and SHA256 hashes of the CLI tarballs. The tap repo's workflow updates
+   the formula and pushes the commit. Users install with
+   `brew tap mmobeus/tap && brew install luadata`.
+
+### Homebrew integration
+
+The CLI binary (`luadata`) is built for macOS Intel (`darwin_amd64`) and Apple
+Silicon (`darwin_arm64`) in the `build-cli` job, which runs in parallel with
+`build-clib`. The binaries are packaged as tarballs and uploaded to the GitHub
+Release.
+
+Authentication to the tap repo uses a **GitHub App** (`mmobeus-homebrew-updater`)
+rather than a personal access token. The app is installed only on `homebrew-tap`
+and has Contents + Actions read/write permissions. Two org-level secrets provide
+the credentials:
+
+- `HOMEBREW_APP_ID`: The app's numeric ID
+- `HOMEBREW_APP_PRIVATE_KEY`: The app's `.pem` private key
+
+At runtime, [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token)
+mints a short-lived token scoped to `homebrew-tap`. This token is used to send
+the `repository_dispatch` event that triggers the formula update.
+
+See the [homebrew-tap README](https://github.com/mmobeus/homebrew-tap) for the
+full setup details, including how to add formulas for other projects.
 
 ### Go consumer model
 
