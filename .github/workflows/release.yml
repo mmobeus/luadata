@@ -49,7 +49,7 @@ jobs:
         run: cargo build -p luadata_clib --release --target ${{ matrix.target }}
 
       - name: Upload shared library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clib-${{ matrix.platform }}
           path: target/${{ matrix.target }}/release/${{ matrix.lib_name }}
@@ -164,7 +164,7 @@ jobs:
           maturin build --release --target ${{ matrix.target }} --out ../wheels/ ${{ matrix.maturin_args }}
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-wheel-${{ matrix.target }}
           path: wheels/*.whl
@@ -184,7 +184,7 @@ jobs:
           args: --out wheels/ -m python/Cargo.toml
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-sdist
           path: wheels/*.tar.gz
