@@ -148,6 +148,7 @@ jobs:
       - uses: actions/setup-go@v6.3.0
         with:
           go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
 
       - name: Test Rust
         run: cargo test -p luadata
