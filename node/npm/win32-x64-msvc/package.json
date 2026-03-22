@@ -1,6 +1,6 @@
 {
   "name": "@mmobeus/luadata-win32-x64-msvc",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "os": ["win32"],
   "cpu": ["x64"],
   "main": "luadata.win32-x64-msvc.node",
