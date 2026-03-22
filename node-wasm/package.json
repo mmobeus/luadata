@@ -1,6 +1,6 @@
 {
   "name": "@mmobeus/luadata-wasm",
-  "version": "0.1.13",
+  "version": "0.1.15",
   "description": "Parse Lua data files and convert to JSON (WebAssembly)",
   "type": "module",
   "main": "index.js",
