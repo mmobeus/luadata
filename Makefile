@@ -49,6 +49,7 @@ SITE_VERSION ?= dev
 build-wasm:
 	cargo install wasm-pack 2>/dev/null || true
 	wasm-pack build wasm --target web --out-dir ../bin/web/pkg
+	rm -f bin/web/pkg/.gitignore
 	cp web/luadata.js web/app.js bin/web/
 	sed 's/__VERSION__/$(SITE_VERSION)/' web/index.html > bin/web/index.html
 
