@@ -1,6 +1,6 @@
 {
   "name": "@mmobeus/luadata-linux-arm64-gnu",
-  "version": "0.1.13",
+  "version": "0.1.15",
   "os": ["linux"],
   "cpu": ["arm64"],
   "main": "luadata.linux-arm64-gnu.node",
