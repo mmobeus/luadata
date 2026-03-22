@@ -11,7 +11,7 @@ loadWasm();
 async function loadWasm() {
     try {
         const mod = await import("../luadata.js");
-        await mod.init("../pkg");
+        await mod.init("pkg");
         convertFn = mod.convert;
         ready = true;
     } catch (e) {
