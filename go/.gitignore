@@ -1,3 +1,2 @@
 # Shared libraries are built by CI and embedded at release time.
 # Local dev populates these via `make build-clib`.
-internal/ffi/lib/
