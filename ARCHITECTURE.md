@@ -1,8 +1,6 @@
 # Architecture
 
-luadata is a Lua data parser written in Rust, with bindings for Go, Python,
-Node.js, WebAssembly, and a standalone CLI. This document describes the architecture and
-the reasoning behind it.
+luadata is a Lua data parser written in Rust, with bindings for Go, Python, Node.js, WebAssembly, and a standalone CLI. This document is a concise structural reference. For the full story — history, design philosophy, how each binding works under the hood, and lessons learned — see [GUIDE.md](GUIDE.md).
 
 ## Overview
 
@@ -23,22 +21,6 @@ Go wrapper (go/)
 
 All language bindings share the same Rust parser — there is exactly one
 implementation of the lexer, parser, and JSON converter.
-
-## Why Rust as source of truth
-
-Before the rewrite, luadata was a pure Go library. Go served the core use case
-well, but adding Python and WebAssembly support exposed limitations:
-
-- **WASM size**: Go's WASM binary was ~3.2MB (runtime overhead). The Rust WASM
-  module is ~124KB — roughly 25x smaller.
-- **Python integration**: The Go approach required building a CGO shared library
-  and loading it via ctypes, with manual JSON-envelope marshalling. Rust/PyO3
-  compiles directly to a native Python extension with native types.
-- **Single parser**: Maintaining one parser instead of porting logic across
-  languages eliminates behavioral drift between platforms.
-- **Go compatibility**: The main objection to Rust was that Go consumers would
-  need CGO. With [purego](https://github.com/ebitengine/purego), Go loads the
-  Rust shared library at runtime with `CGO_ENABLED=0` — no C toolchain required.
 
 ## Repository structure
 
@@ -98,123 +80,50 @@ luadata/
 
 ## Release workflow
 
-Development happens on `main`. The `go/internal/ffi/lib/` directory is
-gitignored — local development uses `make build-clib` to populate it, or sets
-`LUADATA_LIB_PATH` to point at a locally-built shared library.
+For the full narrative on release flow, security model, and publishing details, see [GUIDE.md](GUIDE.md).
 
-### Cutting a release
+Development happens on `main`. Releases are triggered by pushing an RC tag (`v*-rc.*`).
 
-1. **Tag RC on main**: `make release` (or `make release BUMP=minor`, etc.) tags
-   the current commit as `v<version>-rc.1` and pushes the tag.
+### Quick reference
 
-2. **CI cross-compiles**: The `release.yml` workflow triggers on `v*-rc.*` tags.
-   It builds the Rust cdylib for five platforms:
-   - `darwin_amd64`, `darwin_arm64`
-   - `linux_amd64`, `linux_arm64`
-   - `windows_amd64`
+1. `make release` → tags `v<version>-rc.<n>` on main
+2. CI builds cdylib, CLI, and Node.js addon across 5 platforms
+3. CI runs Rust + Go tests
+4. Release branch prepared with embedded Go libs + version tags
+5. GitHub Release created with binaries
+6. Parallel publish: PyPI, npm (WASM + native), crates.io — all via OIDC trusted publishing
+7. Homebrew tap updated via GitHub App dispatch
+8. Version bump PR opened against main
 
-3. **CI tests**: Rust tests and Go tests (using the freshly-built Linux library)
-   run in the same workflow.
+### Publish targets
 
-4. **Prepare release branch**: `scripts/prepare-release.sh` copies the
-   cross-compiled shared libraries into `go/internal/ffi/lib/<platform>/`,
-   generates platform-specific `go:embed` files (replacing `embed_dev.go`), and
-   commits everything to the `release` branch with the final version tag.
-
-5. **GitHub Release**: CI creates a GitHub Release with shared library artifacts
-   and CLI binary tarballs (macOS Intel + Apple Silicon).
-
-6. **Publish to registries**: After the release succeeds, publish jobs run in
-   parallel — all using OIDC trusted publishing (no stored secrets):
-   - **PyPI**: Builds platform-specific wheels (same five platforms as clib) plus
-     an sdist, then publishes `mmobeus-luadata` via `pypa/gh-action-pypi-publish`.
-   - **npm (WASM)**: Builds the WASM module with wasm-pack, packages it with the
-     JS/TS wrapper from `node-wasm/`, and publishes `@mmobeus/luadata-wasm`.
-   - **npm (native)**: Downloads cross-compiled napi-rs `.node` binaries (same
-     five platforms), distributes them to platform packages under `napi/npm/`,
-     and publishes `@mmobeus/luadata` plus five platform-specific packages
-     (e.g., `@mmobeus/luadata-darwin-arm64`).
-   - **crates.io**: Publishes the `luadata` core crate via
-     `rust-lang/crates-io-auth-action` for OIDC token exchange.
-
-7. **Homebrew**: After the GitHub Release is created, the workflow dispatches a
-   `repository_dispatch` event to
-   [`mmobeus/homebrew-tap`](https://github.com/mmobeus/homebrew-tap) with the
-   version and SHA256 hashes of the CLI tarballs. The tap repo's workflow updates
-   the formula and pushes the commit. Users install with
-   `brew tap mmobeus/tap && brew install luadata`.
-
-### Homebrew integration
-
-The CLI binary (`luadata`) is built for macOS Intel (`darwin_amd64`) and Apple
-Silicon (`darwin_arm64`) in the `build-cli` job, which runs in parallel with
-`build-clib`. The binaries are packaged as tarballs and uploaded to the GitHub
-Release.
-
-Authentication to the tap repo uses a **GitHub App** (`mmobeus-homebrew-updater`)
-rather than a personal access token. The app is installed only on `homebrew-tap`
-and has Contents + Actions read/write permissions. Two org-level secrets provide
-the credentials:
-
-- `HOMEBREW_APP_ID`: The app's numeric ID
-- `HOMEBREW_APP_PRIVATE_KEY`: The app's `.pem` private key
-
-At runtime, [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token)
-mints a short-lived token scoped to `homebrew-tap`. This token is used to send
-the `repository_dispatch` event that triggers the formula update.
-
-See the [homebrew-tap README](https://github.com/mmobeus/homebrew-tap) for the
-full setup details, including how to add formulas for other projects.
+| Registry | Package | Auth |
+|---|---|---|
+| crates.io | `luadata`, `luadata_cli` | OIDC (`rust-lang/crates-io-auth-action`) |
+| PyPI | `mmobeus-luadata` | OIDC (`pypa/gh-action-pypi-publish`) |
+| npm | `@mmobeus/luadata`, `@mmobeus/luadata-wasm` | OIDC (native npm provenance) |
+| Homebrew | `mmobeus/tap/luadata` | GitHub App token (scoped to tap repo) |
+| pkg.go.dev | `github.com/mmobeus/luadata/go` | None (indexed from release branch) |
 
 ### Go consumer model
 
-Go consumers install with:
-
 ```
-go get github.com/mmobeus/luadata/go@v0.5.0
+go get github.com/mmobeus/luadata/go@v0.1.13
 ```
 
-This resolves to the `release` branch commit, which contains the embedded shared
-libraries. At runtime, the Go wrapper extracts the platform-appropriate library
-to a temp file and loads it via purego. No CGO is involved at any point.
+Resolves to the `release` branch, which contains embedded shared libraries. At
+runtime, the Go wrapper extracts the platform-appropriate library to a temp file
+and loads it via purego. No CGO involved.
 
-On `main`, `embed_dev.go` provides an empty `EmbeddedLib` byte slice. If
-`LUADATA_LIB_PATH` is set, the FFI layer loads the library from that path
-instead — this is the local development path.
+On `main`, `embed_dev.go` provides an empty `EmbeddedLib` byte slice — set
+`LUADATA_LIB_PATH` to a locally-built library for development.
 
 ## Key design decisions
 
-### purego FFI
+For detailed explanations of each decision, see [GUIDE.md](GUIDE.md).
 
-The Go wrapper uses [purego](https://github.com/ebitengine/purego) to call the
-Rust shared library. purego uses assembly trampolines to make C function calls
-from pure Go — no CGO, no C compiler, no `CGO_ENABLED=1`. This means:
-
-- `go get` works without a C toolchain
-- Cross-compilation works (libraries are pre-built per platform)
-- The Go module is a normal Go package from the consumer's perspective
-
-### internal/ffi for platform isolation
-
-Platform-specific code (library loading, embed directives) lives in
-`go/internal/ffi/` behind build tags. The public API in `go/luadata.go` is
-platform-agnostic and delegates to `ffi.Call()`.
-
-### runtime.KeepAlive for GC safety
-
-When passing Go byte slices to the Rust FFI as C pointers, `runtime.KeepAlive`
-ensures the Go garbage collector doesn't collect the backing memory while Rust
-is reading it.
-
-### Null-terminated C strings for UTF-8 correctness
-
-The FFI boundary uses null-terminated C strings (`*const c_char` on the Rust
-side). The Go wrapper converts Go strings to null-terminated byte slices before
-passing them. This avoids length-prefix mismatches and ensures Rust's `CStr`
-can safely interpret the data as UTF-8.
-
-### JSON envelope for FFI results
-
-The clib returns results as a JSON envelope: `{"result":"..."}` on success,
-`{"error":"..."}` on failure. This keeps the FFI surface minimal (two functions:
-`LuaDataToJSON` and `LuaDataFree`) while supporting structured error reporting.
+- **JSON-in, JSON-out C boundary**: The clib accepts and returns JSON strings — no C structs. This keeps the FFI surface at two functions and lets Rust internals evolve without breaking the ABI.
+- **purego for Go FFI**: Loads the Rust shared library at runtime using assembly trampolines. No CGO, no C toolchain. `go get` works normally.
+- **Embedded shared libs**: The `release` branch embeds platform-specific libraries via `go:embed` + build tags, so Go consumers get everything from `go get`.
+- **Platform isolation**: Platform-specific code lives behind build tags in `go/internal/ffi/`. The public API is platform-agnostic.
+- **OIDC trusted publishing**: All registry credentials (PyPI, npm, crates.io) use short-lived OIDC tokens. No stored secrets.

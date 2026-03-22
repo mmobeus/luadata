@@ -6,6 +6,10 @@ A Lua data parser with Rust, Go, Python, Node.js, CLI, and WebAssembly interface
 
 **[Live Converter](https://mmobeus.github.io/luadata/)** — Try it in your browser. Paste Lua data and get JSON instantly.
 
+### Why so many bindings?
+
+luadata started as a Go utility. The additional language bindings exist because this project doubles as a learning exercise in sharing a core Rust library across multiple languages and ecosystems. See [GUIDE.md](GUIDE.md) for the full story.
+
 ## Usage
 
 ### Rust — [`luadata`](https://crates.io/crates/luadata)
