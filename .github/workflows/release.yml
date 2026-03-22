@@ -203,9 +203,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          NOTES_FLAG=""
+          if [[ -n "$PREV_TAG" ]]; then
+            NOTES_FLAG="--notes-start-tag $PREV_TAG"
+          fi
           gh release create "${{ steps.release_tag.outputs.tag }}" \
             --title "${{ steps.release_tag.outputs.tag }}" \
             --generate-notes \
+            $NOTES_FLAG \
             clib-artifacts/clib-*/* \
             cli-artifacts/luadata-*.tar.gz
 
@@ -228,6 +234,39 @@ jobs:
             -f "client_payload[version]=${VERSION}" \
             -f "client_payload[sha256_amd64]=${{ steps.cli_sha.outputs.darwin_amd64 }}" \
             -f "client_payload[sha256_arm64]=${{ steps.cli_sha.outputs.darwin_arm64 }}"
+
+  deploy-pages:
+    needs: test-and-release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.test-and-release.outputs.release_tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version-file: web/docs/gen/go.mod
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Build site
+        run: make build-site SITE_VERSION=${{ needs.test-and-release.outputs.release_tag }}
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: bin/web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
 
   build-python-wheels:
     needs: test-and-release
