@@ -1,6 +1,6 @@
 {
   "name": "@mmobeus/luadata-darwin-arm64",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "os": ["darwin"],
   "cpu": ["arm64"],
   "main": "luadata.darwin-arm64.node",
