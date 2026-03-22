@@ -56,6 +56,24 @@ h2 { margin: 1.5rem 0 0.5rem; font-size: 1.1rem; color: #666; text-transform: up
     line-height: 1.7;
 }
 
+.col-prose ul {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+    line-height: 1.7;
+}
+
+.col-prose li {
+    margin: 0.3rem 0;
+}
+
+.col-prose code {
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.85em;
+    background: #f0f0f0;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+}
+
 .col-code {
     min-width: 0; /* prevent code overflow from breaking grid */
 }
@@ -198,12 +216,42 @@ h2 { margin: 1.5rem 0 0.5rem; font-size: 1.1rem; color: #666; text-transform: up
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+.schema-editor {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem;
+    padding-right: 3rem;
+    font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    background: #f5f5f5;
+    border: 2px solid #16a34a;
+    border-radius: 6px;
+    resize: vertical;
+    tab-size: 2;
+    color: #333;
+}
+
+.schema-editor:focus {
+    outline: none;
+    border-color: #15803d;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
 .code-block-lua pre {
     transition: border-color 0.15s;
 }
 
 .code-block-lua pre:hover {
     border-color: #2563eb;
+}
+
+.code-block-editable pre {
+    transition: border-color 0.15s;
+}
+
+.code-block-editable pre:hover {
+    border-color: #16a34a;
 }
 
 .output-error {

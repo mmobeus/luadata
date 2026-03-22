@@ -268,11 +268,8 @@ fn read_lua_table_key(lex: &mut Lexer) -> Result<Key, String> {
     match val.value_type {
         ValueType::String => Ok(Key {
             key_type: KeyType::String,
+            raw: RawKey::String(val.source.clone()),
             source: val.source,
-            raw: match val.raw {
-                RawValue::String(s) => RawKey::String(s),
-                _ => unreachable!(),
-            },
         }),
         ValueType::Int => Ok(Key {
             key_type: KeyType::Int,
@@ -328,12 +325,20 @@ fn read_quoted_string_value(lex: &mut Lexer) -> Result<Value, String> {
                 let raw_bytes = lex.take_bytes();
                 let decoded = decode_lua_string_bytes(&raw_bytes);
                 let decoded_str = bytes_to_string(&decoded);
-                let (val, was_transformed) = lex.config.transform_string(&decoded_str);
+                let (source, was_transformed) = lex.config.transform_string(&decoded_str);
+
+                // If the string was transformed, store the transformed string's
+                // bytes as raw (the original bytes are no longer relevant).
+                let raw = if was_transformed {
+                    source.as_bytes().to_vec()
+                } else {
+                    decoded
+                };
 
                 return Ok(Value {
                     value_type: ValueType::String,
-                    source: val.clone(),
-                    raw: RawValue::String(val),
+                    source,
+                    raw: RawValue::String(raw),
                     transformed: was_transformed,
                 });
             }

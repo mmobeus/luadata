@@ -1,4 +1,5 @@
 use luadata::options::*;
+use luadata::schema::parse_schema;
 use luadata::text_to_json;
 
 fn json(input: &str, config: ParseConfig) -> String {
@@ -899,4 +900,465 @@ fn test_file_comments() {
     assert_eq!(v["name"], "test");
     assert_eq!(v["data"]["a"], 1);
     assert_eq!(v["data"]["b"], 2);
+}
+
+// ========== Schema: Basic Type Guidance ==========
+
+fn json_with_schema(input: &str, schema_json: &str) -> String {
+    let mut config = ParseConfig::new();
+    config.schema = Some(parse_schema(schema_json).unwrap());
+    text_to_json("input", input, config).unwrap()
+}
+
+fn json_with_schema_and_mode(input: &str, schema_json: &str, mode: UnknownFieldMode) -> String {
+    let mut config = ParseConfig::new();
+    config.schema = Some(parse_schema(schema_json).unwrap());
+    config.unknown_field_mode = mode;
+    text_to_json("input", input, config).unwrap()
+}
+
+#[test]
+fn test_schema_forces_array() {
+    // Schema says "data" is an array, even with ArrayMode::None
+    let mut config = ParseConfig::new();
+    config.array_mode = Some(ArrayMode::None);
+    config.schema = Some(
+        parse_schema(
+            r#"{"type": "object", "properties": {"data": {"type": "array", "items": {"type": "string"}}}}"#,
+        )
+        .unwrap(),
+    );
+    let result = text_to_json("input", r#"data={"a","b","c"}"#, config).unwrap();
+    assert_eq!(result, r#"{"data":["a","b","c"]}"#);
+}
+
+#[test]
+fn test_schema_forces_object() {
+    // Implicit index table treated as object when schema says object
+    let result = json_with_schema(
+        r#"data={"a","b","c"}"#,
+        r#"{"type": "object", "properties": {"data": {"type": "object"}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(v["data"].is_object());
+    assert_eq!(v["data"]["1"], "a");
+    assert_eq!(v["data"]["2"], "b");
+    assert_eq!(v["data"]["3"], "c");
+}
+
+#[test]
+fn test_schema_empty_table_as_array() {
+    let result = json_with_schema(
+        "data={}",
+        r#"{"type": "object", "properties": {"data": {"type": "array"}}}"#,
+    );
+    assert_eq!(result, r#"{"data":[]}"#);
+}
+
+#[test]
+fn test_schema_empty_table_as_object() {
+    let result = json_with_schema(
+        "data={}",
+        r#"{"type": "object", "properties": {"data": {"type": "object"}}}"#,
+    );
+    assert_eq!(result, r#"{"data":{}}"#);
+}
+
+#[test]
+fn test_schema_overrides_empty_table_mode() {
+    // Config says EmptyTableMode::Null, but schema says array
+    let mut config = ParseConfig::new();
+    config.empty_table_mode = EmptyTableMode::Null;
+    config.schema = Some(
+        parse_schema(r#"{"type": "object", "properties": {"data": {"type": "array"}}}"#).unwrap(),
+    );
+    let result = text_to_json("input", "data={}", config).unwrap();
+    assert_eq!(result, r#"{"data":[]}"#);
+}
+
+// ========== Schema: Type Coercion ==========
+
+#[test]
+fn test_schema_int_to_number_coercion() {
+    // Lua has `42` (parses as int), schema says number (float)
+    let result = json_with_schema(
+        "val=42",
+        r#"{"type": "object", "properties": {"val": {"type": "number"}}}"#,
+    );
+    assert_eq!(result, r#"{"val":42.0}"#);
+}
+
+#[test]
+fn test_schema_int_stays_int_when_schema_says_integer() {
+    let result = json_with_schema(
+        "val=42",
+        r#"{"type": "object", "properties": {"val": {"type": "integer"}}}"#,
+    );
+    assert_eq!(result, r#"{"val":42}"#);
+}
+
+#[test]
+fn test_schema_int_stays_int_when_schema_says_string() {
+    // No lossy coercion: int is NOT converted to string
+    let result = json_with_schema(
+        "val=42",
+        r#"{"type": "object", "properties": {"val": {"type": "string"}}}"#,
+    );
+    assert_eq!(result, r#"{"val":42}"#);
+}
+
+#[test]
+fn test_schema_float_stays_float_when_schema_says_number() {
+    let result = json_with_schema(
+        "val=3.14",
+        r#"{"type": "object", "properties": {"val": {"type": "number"}}}"#,
+    );
+    assert_eq!(result, r#"{"val":3.14}"#);
+}
+
+// ========== Schema: String Formats ==========
+
+#[test]
+fn test_schema_string_format_bytes() {
+    let input: &[u8] = b"data=\"\x01\x02\x03\"";
+    let mut config = ParseConfig::new();
+    config.schema = Some(
+        parse_schema(
+            r#"{"type": "object", "properties": {"data": {"type": "string", "format": "bytes"}}}"#,
+        )
+        .unwrap(),
+    );
+    let result = luadata::to_json(input, config).unwrap();
+    assert_eq!(result, r#"{"data":[1,2,3]}"#);
+}
+
+#[test]
+fn test_schema_string_format_base64() {
+    let input: &[u8] = b"data=\"\x01\x02\x03\"";
+    let mut config = ParseConfig::new();
+    config.schema = Some(
+        parse_schema(
+            r#"{"type": "object", "properties": {"data": {"type": "string", "format": "base64"}}}"#,
+        )
+        .unwrap(),
+    );
+    let result = luadata::to_json(input, config).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["data"], "AQID"); // base64 of [0x01, 0x02, 0x03]
+}
+
+#[test]
+fn test_schema_string_format_latin1_explicit() {
+    // Explicit latin1 format should behave like no format (passthrough)
+    let result = json_with_schema(
+        r#"data="hello""#,
+        r#"{"type": "object", "properties": {"data": {"type": "string", "format": "latin1"}}}"#,
+    );
+    assert_eq!(result, r#"{"data":"hello"}"#);
+}
+
+#[test]
+fn test_schema_bytes_format_preserves_valid_utf8_as_raw_bytes() {
+    // Bytes \xc3\xa9 happen to be valid UTF-8 (é). Without schema, the heuristic
+    // would decode them as a single char. With format: "bytes", we must get the
+    // original two bytes back, not the decoded Unicode code point.
+    let input: &[u8] = b"data=\"\xc3\xa9\"";
+    let mut config = ParseConfig::new();
+    config.schema = Some(
+        parse_schema(
+            r#"{"type": "object", "properties": {"data": {"type": "string", "format": "bytes"}}}"#,
+        )
+        .unwrap(),
+    );
+    let result = luadata::to_json(input, config).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    // Must be [195, 169] (the two raw bytes), NOT [233] (the Unicode code point of é)
+    assert_eq!(v["data"], serde_json::json!([195, 169]));
+}
+
+#[test]
+fn test_schema_base64_format_preserves_valid_utf8_as_raw_bytes() {
+    // Same scenario but with base64 encoding
+    let input: &[u8] = b"data=\"\xc3\xa9\"";
+    let mut config = ParseConfig::new();
+    config.schema = Some(
+        parse_schema(
+            r#"{"type": "object", "properties": {"data": {"type": "string", "format": "base64"}}}"#,
+        )
+        .unwrap(),
+    );
+    let result = luadata::to_json(input, config).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    // base64 of [0xc3, 0xa9]
+    assert_eq!(v["data"], "w6k=");
+}
+
+// ========== Schema: Unknown Field Handling ==========
+
+#[test]
+fn test_schema_unknown_fields_ignore() {
+    let result = json_with_schema_and_mode(
+        r#"known="yes"
+unknown="no""#,
+        r#"{"type": "object", "properties": {"known": {"type": "string"}}}"#,
+        UnknownFieldMode::Ignore,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["known"], "yes");
+    assert!(v.get("unknown").is_none());
+}
+
+#[test]
+fn test_schema_unknown_fields_include() {
+    let result = json_with_schema_and_mode(
+        r#"known="yes"
+unknown="included""#,
+        r#"{"type": "object", "properties": {"known": {"type": "string"}}}"#,
+        UnknownFieldMode::Include,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["known"], "yes");
+    assert_eq!(v["unknown"], "included");
+}
+
+#[test]
+fn test_schema_unknown_fields_fail() {
+    let mut config = ParseConfig::new();
+    config.schema = Some(
+        parse_schema(r#"{"type": "object", "properties": {"known": {"type": "string"}}}"#).unwrap(),
+    );
+    config.unknown_field_mode = UnknownFieldMode::Fail;
+    let result = text_to_json(
+        "input",
+        r#"known="yes"
+unknown="boom""#,
+        config,
+    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("unknown field"));
+}
+
+#[test]
+fn test_schema_unknown_fields_default_is_ignore() {
+    // Default mode should be ignore when schema is present
+    let result = json_with_schema(
+        r#"known="yes"
+extra="gone""#,
+        r#"{"type": "object", "properties": {"known": {"type": "string"}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["known"], "yes");
+    assert!(v.get("extra").is_none());
+}
+
+// ========== Schema: Nested Structures ==========
+
+#[test]
+fn test_schema_nested_object() {
+    let result = json_with_schema(
+        r#"config={["host"]="localhost",["port"]=8080}"#,
+        r#"{"type": "object", "properties": {"config": {"type": "object", "properties": {"host": {"type": "string"}, "port": {"type": "integer"}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["config"]["host"], "localhost");
+    assert_eq!(v["config"]["port"], 8080);
+}
+
+#[test]
+fn test_schema_nested_object_filters_unknown() {
+    let result = json_with_schema(
+        r#"config={["host"]="localhost",["port"]=8080,["secret"]="hidden"}"#,
+        r#"{"type": "object", "properties": {"config": {"type": "object", "properties": {"host": {"type": "string"}, "port": {"type": "integer"}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["config"]["host"], "localhost");
+    assert_eq!(v["config"]["port"], 8080);
+    assert!(v["config"].get("secret").is_none());
+}
+
+#[test]
+fn test_schema_array_of_objects() {
+    let result = json_with_schema(
+        r#"items={{["id"]=1,["name"]="a"},{["id"]=2,["name"]="b"}}"#,
+        r#"{"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["items"][0]["id"], 1);
+    assert_eq!(v["items"][0]["name"], "a");
+    assert_eq!(v["items"][1]["id"], 2);
+    assert_eq!(v["items"][1]["name"], "b");
+}
+
+#[test]
+fn test_schema_deeply_nested() {
+    let result = json_with_schema(
+        r#"a={["b"]={["c"]={["d"]=42}}}"#,
+        r#"{"type": "object", "properties": {"a": {"type": "object", "properties": {"b": {"type": "object", "properties": {"c": {"type": "object", "properties": {"d": {"type": "integer"}}}}}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["a"]["b"]["c"]["d"], 42);
+}
+
+#[test]
+fn test_schema_partial_coverage() {
+    // Schema only covers "name", not "count". With Include mode, count should appear.
+    let result = json_with_schema_and_mode(
+        r#"name="hello"
+count=42"#,
+        r#"{"type": "object", "properties": {"name": {"type": "string"}}}"#,
+        UnknownFieldMode::Include,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["name"], "hello");
+    assert_eq!(v["count"], 42);
+}
+
+// ========== Schema: No Schema Regression ==========
+
+#[test]
+fn test_no_schema_regression_simple() {
+    // Ensure no-schema behavior is unchanged
+    assert_eq!(json_default(r#"foo="bar""#), r#"{"foo":"bar"}"#);
+    assert_eq!(json_default("foo=42"), r#"{"foo":42}"#);
+    assert_eq!(json_default("foo=true"), r#"{"foo":true}"#);
+}
+
+#[test]
+fn test_no_schema_regression_array() {
+    assert_eq!(
+        json_default(r#"data={"a","b","c"}"#),
+        r#"{"data":["a","b","c"]}"#
+    );
+}
+
+#[test]
+fn test_schema_array_of_integers() {
+    let result = json_with_schema(
+        "nums={1,2,3}",
+        r#"{"type": "object", "properties": {"nums": {"type": "array", "items": {"type": "integer"}}}}"#,
+    );
+    assert_eq!(result, r#"{"nums":[1,2,3]}"#);
+}
+
+#[test]
+fn test_schema_array_of_numbers_coerces_ints() {
+    // Array items are typed as "number", so ints should be coerced to floats
+    let result = json_with_schema(
+        "nums={1,2,3}",
+        r#"{"type": "object", "properties": {"nums": {"type": "array", "items": {"type": "number"}}}}"#,
+    );
+    assert_eq!(result, r#"{"nums":[1.0,2.0,3.0]}"#);
+}
+
+#[test]
+fn test_schema_inferred_object_type() {
+    // Schema without "type" but with "properties" should be inferred as object
+    let result = json_with_schema(r#"x=1"#, r#"{"properties": {"x": {"type": "integer"}}}"#);
+    assert_eq!(result, r#"{"x":1}"#);
+}
+
+// ========== Schema: additionalProperties (map type) ==========
+
+#[test]
+fn test_schema_additional_properties_map() {
+    // additionalProperties acts as a map<string, T> — every key gets the same schema
+    let result = json_with_schema(
+        r#"quests={[1024]={["name"]="Test",["level"]=20},[1025]={["name"]="Another",["level"]=30}}"#,
+        r#"{"type": "object", "properties": {"quests": {"type": "object", "additionalProperties": {"type": "object", "properties": {"name": {"type": "string"}, "level": {"type": "integer"}}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(v["quests"].is_object());
+    assert_eq!(v["quests"]["1024"]["name"], "Test");
+    assert_eq!(v["quests"]["1024"]["level"], 20);
+    assert_eq!(v["quests"]["1025"]["name"], "Another");
+}
+
+#[test]
+fn test_schema_additional_properties_filters_nested() {
+    // additionalProperties schema filters fields within each value
+    let result = json_with_schema(
+        r#"data={[1]={["keep"]="yes",["drop"]="no"},[2]={["keep"]="also",["drop"]="gone"}}"#,
+        r#"{"type": "object", "properties": {"data": {"type": "object", "additionalProperties": {"type": "object", "properties": {"keep": {"type": "string"}}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(v["data"]["1"]["keep"], "yes");
+    assert!(v["data"]["1"].get("drop").is_none());
+    assert_eq!(v["data"]["2"]["keep"], "also");
+    assert!(v["data"]["2"].get("drop").is_none());
+}
+
+#[test]
+fn test_schema_additional_properties_with_number_coercion() {
+    // Map values typed as number should coerce ints to floats
+    let result = json_with_schema(
+        r#"scores={["alice"]=95,["bob"]=87}"#,
+        r#"{"type": "object", "properties": {"scores": {"type": "object", "additionalProperties": {"type": "number"}}}}"#,
+    );
+    assert_eq!(result, r#"{"scores":{"alice":95.0,"bob":87.0}}"#);
+}
+
+#[test]
+fn test_schema_additional_properties_prevents_array_heuristic() {
+    // Integer keys that would normally be a sparse array stay as object
+    // because the schema says object with additionalProperties
+    let mut config = ParseConfig::new();
+    config.schema = Some(
+        parse_schema(
+            r#"{"type": "object", "properties": {"items": {"type": "object", "additionalProperties": {"type": "string"}}}}"#,
+        )
+        .unwrap(),
+    );
+    // These contiguous int keys would normally become an array
+    let result = text_to_json("input", r#"items={[1]="a",[2]="b",[3]="c"}"#, config).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(v["items"].is_object());
+    assert_eq!(v["items"]["1"], "a");
+    assert_eq!(v["items"]["2"], "b");
+    assert_eq!(v["items"]["3"], "c");
+}
+
+#[test]
+fn test_schema_properties_takes_precedence_over_additional() {
+    // Explicit properties should be used for matching keys, additionalProperties for the rest
+    let result = json_with_schema(
+        r#"data={["special"]=42,["other1"]=1,["other2"]=2}"#,
+        r#"{"type": "object", "properties": {"data": {"type": "object", "properties": {"special": {"type": "number"}}, "additionalProperties": {"type": "integer"}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    // "special" uses its own schema (number → float coercion)
+    assert_eq!(v["data"]["special"], 42.0);
+    // Others use additionalProperties (integer → stays int)
+    assert_eq!(v["data"]["other1"], 1);
+    assert_eq!(v["data"]["other2"], 2);
+}
+
+#[test]
+fn test_schema_int_keys_forced_to_object() {
+    // Integer keys that would normally become a sparse array should stay as object
+    // when schema says object. This is the "quest by ID" case.
+    let result = json_with_schema(
+        r#"quests={[1024]={["name"]="Test"},[1025]={["name"]="Another"}}"#,
+        r#"{"type": "object", "properties": {"quests": {"type": "object"}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(v["quests"].is_object());
+    assert_eq!(v["quests"]["1024"]["name"], "Test");
+    assert_eq!(v["quests"]["1025"]["name"], "Another");
+}
+
+#[test]
+fn test_schema_int_keys_with_string_properties() {
+    // JSON Schema properties are always string-keyed. Integer keys from Lua
+    // become string keys in JSON. Schema properties with string versions of
+    // those integers should match.
+    let result = json_with_schema(
+        r#"data={[1]="a",[2]="b",[3]="c"}"#,
+        r#"{"type": "object", "properties": {"data": {"type": "object", "properties": {"1": {"type": "string"}, "2": {"type": "string"}}}}}"#,
+    );
+    let v: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(v["data"].is_object());
+    assert_eq!(v["data"]["1"], "a");
+    assert_eq!(v["data"]["2"], "b");
+    // "3" is not in schema, default ignore mode omits it
+    assert!(v["data"].get("3").is_none());
 }

@@ -25,5 +25,7 @@ readme = "CRATE_README.md"
 include = ["src/**", "Cargo.toml", "LICENSE", "CRATE_README.md"]
 
 [dependencies]
+base64 = "0.22"
+indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

@@ -2,7 +2,7 @@ use napi::Error;
 use napi_derive::napi;
 
 use luadata::options::{
-    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode,
+    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode, UnknownFieldMode,
 };
 
 #[napi(object)]
@@ -18,6 +18,8 @@ pub struct ConvertOptions {
     pub array_mode: Option<String>,
     pub array_max_gap: Option<u32>,
     pub string_transform: Option<StringTransformOptions>,
+    pub schema: Option<String>,
+    pub unknown_fields: Option<String>,
 }
 
 /// Convert a Lua data string to a JSON string.
@@ -72,6 +74,26 @@ fn build_config(opts: Option<ConvertOptions>) -> napi::Result<ParseConfig> {
                 )));
             }
         });
+    }
+
+    if let Some(uf) = opts.unknown_fields {
+        config.unknown_field_mode = match uf.as_str() {
+            "ignore" => UnknownFieldMode::Ignore,
+            "include" => UnknownFieldMode::Include,
+            "fail" => UnknownFieldMode::Fail,
+            _ => {
+                return Err(Error::from_reason(format!(
+                    "unknown unknownFields value: {uf:?}"
+                )));
+            }
+        };
+    }
+
+    if let Some(schema_str) = opts.schema {
+        config.schema = Some(
+            luadata::parse_schema(&schema_str)
+                .map_err(|e| Error::from_reason(format!("schema error: {e}")))?,
+        );
     }
 
     if let Some(st) = opts.string_transform {

@@ -29,10 +29,9 @@ as JSON arrays:
   ]
 }
 ---
-The WithArrayDetection option gives you control over this behavior.
-Like the other options, the chosen array mode applies to all tables
-in the output. In a future version, we may support options scoped by
-key patterns and eventually mapping to a known schema, removing the
-need for these heuristics entirely.
+The array mode option gives you control over this behavior. The chosen
+mode applies to all tables in the output. If you need per-field control,
+a JSON Schema can declare each field's type explicitly — see
+[Schema vs Heuristics](schema-vs-heuristics.html).
 
 The next three examples cover each array mode in detail.

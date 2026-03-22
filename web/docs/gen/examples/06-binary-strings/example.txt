@@ -48,3 +48,7 @@ This design means:
 - **Binary strings** (packed data, serialized blobs) are preserved losslessly.
   Every original byte can be recovered from the JSON output.
 - The distinction is automatic — no configuration or hints needed.
+
+For more control over binary encoding, a JSON Schema can declare specific
+fields as `format: "base64"` or `format: "bytes"` — see
+[Schema String Formats](schema-binary-strings.html).

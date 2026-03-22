@@ -2,7 +2,7 @@ Array Mode: None
 ---options
 {"arrayMode":"none"}
 ---
-ArrayModeNone is the most conservative array detection mode. It disables
+The "none" array mode is the most conservative. It disables
 all array rendering — every table becomes a JSON object, even implicit
 index tables.
 ---lua
@@ -13,10 +13,10 @@ scores = {
     [3] = 92,
 }
 ---
-With ArrayModeNone, both tables render as objects with string keys:
+With array mode "none", both tables render as objects with string keys:
 ---go
 reader, err := luadata.TextToJSON("input", input,
-    luadata.WithArrayDetection(luadata.ArrayModeNone{}),
+    luadata.WithArrayMode("none"),
 )
 ---output
 {
@@ -35,7 +35,7 @@ reader, err := luadata.TextToJSON("input", input,
 This mode is useful when dealing with data that may change shape over
 time. With other array modes, a table might render as a JSON array in
 one version of the data and an object in another, forcing consumers to
-handle mixed types. With ArrayModeNone, the output is always objects
+handle mixed types. With this mode, the output is always objects
 with numeric string keys, keeping the JSON structure consistent and
 predictable.
 

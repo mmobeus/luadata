@@ -8,6 +8,8 @@ type optionsConfig struct {
 	arrayMode       string           // "none", "index-only", "sparse"
 	arrayMaxGap     *int             // only for sparse mode
 	stringTransform *stringTransform // nil = no transform
+	schema          string           // JSON Schema string
+	unknownFields   string           // "ignore", "include", "fail"
 }
 
 type stringTransform struct {
@@ -34,6 +36,22 @@ func WithArrayMode(mode string, maxGap ...int) Option {
 			gap := maxGap[0]
 			c.arrayMaxGap = &gap
 		}
+	}
+}
+
+// WithSchema sets a JSON Schema to guide parsing.
+// The schema is a standard JSON Schema string (subset: type, properties, items, format).
+func WithSchema(schemaJSON string) Option {
+	return func(c *optionsConfig) {
+		c.schema = schemaJSON
+	}
+}
+
+// WithUnknownFieldMode sets how fields not in the schema are handled.
+// Valid values: "ignore" (default), "include", "fail".
+func WithUnknownFieldMode(mode string) Option {
+	return func(c *optionsConfig) {
+		c.unknownFields = mode
 	}
 }
 

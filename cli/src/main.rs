@@ -4,7 +4,7 @@ use std::process;
 use clap::{Parser, Subcommand};
 
 use luadata::options::{
-    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode,
+    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode, UnknownFieldMode,
 };
 
 #[derive(Parser)]
@@ -61,6 +61,14 @@ struct SharedOpts {
     /// Replacement text for replace mode
     #[arg(long = "string-replacement", default_value = "")]
     string_replacement: String,
+
+    /// JSON Schema (inline JSON string or file path)
+    #[arg(long = "schema")]
+    schema: Option<String>,
+
+    /// How to handle fields not in the schema: ignore, include, fail
+    #[arg(long = "unknown-fields", default_value = "ignore")]
+    unknown_fields: String,
 }
 
 fn build_config(opts: &SharedOpts) -> Result<ParseConfig, String> {
@@ -92,6 +100,29 @@ fn build_config(opts: &SharedOpts) -> Result<ParseConfig, String> {
             ));
         }
     });
+
+    config.unknown_field_mode = match opts.unknown_fields.as_str() {
+        "ignore" => UnknownFieldMode::Ignore,
+        "include" => UnknownFieldMode::Include,
+        "fail" => UnknownFieldMode::Fail,
+        v => {
+            return Err(format!(
+                "unknown --unknown-fields value: {:?} (valid: ignore, include, fail)",
+                v
+            ));
+        }
+    };
+
+    if let Some(schema_arg) = &opts.schema {
+        let schema_json = if schema_arg.starts_with('{') {
+            schema_arg.clone()
+        } else {
+            std::fs::read_to_string(schema_arg)
+                .map_err(|e| format!("error reading schema file {:?}: {}", schema_arg, e))?
+        };
+        config.schema =
+            Some(luadata::parse_schema(&schema_json).map_err(|e| format!("schema error: {}", e))?);
+    }
 
     if opts.string_max_len > 0 {
         let mode = match opts.string_mode.as_str() {

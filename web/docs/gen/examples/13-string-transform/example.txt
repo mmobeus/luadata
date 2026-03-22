@@ -14,10 +14,7 @@ name = "Thrall"
 biography = "A very long string that goes on and on and contains the entire history of the Horde from the First War through the events of the latest expansion including every battle and political development..."
 ---go
 reader, err := luadata.TextToJSON("input", input,
-    luadata.WithStringTransform(luadata.StringTransform{
-        MaxLen: 20,
-        Mode:   luadata.StringTransformTruncate,
-    }),
+    luadata.WithStringTransform(20, "truncate"),
 )
 ---output
 {
@@ -32,8 +29,8 @@ The transformation happens during parsing, so the full string content is
 never stored in memory. This makes it safe to process very large files.
 
 Like the other options, the string transform applies to all strings in
-the output. In a future version, we may support options scoped by key
-patterns and eventually mapping to a known schema, removing the need
-for these heuristics entirely.
+the output. For per-field control over string encoding, a JSON Schema
+can declare specific fields as binary — see
+[Schema String Formats](schema-binary-strings.html).
 
 The next example covers all four transform modes.

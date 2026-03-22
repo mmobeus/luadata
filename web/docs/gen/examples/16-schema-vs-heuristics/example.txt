@@ -1,0 +1,62 @@
+Schema vs Heuristics
+---options
+{"schema":"{\"type\":\"object\",\"properties\":{\"quests\":{\"type\":\"object\",\"additionalProperties\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"}}}}}}"}
+---
+Without a schema, luadata uses heuristics to decide whether an integer-keyed
+Lua table is an array or an object. This usually works well, but some data is
+genuinely ambiguous.
+
+Consider quest data keyed by quest ID. The IDs are close together,
+so the default sparse array heuristic treats them as an array with leading
+nulls:
+---lua
+quests = {
+    [10] = {["name"] = "Into the Fray", ["level"] = 20},
+    [11] = {["name"] = "The Lost Idol", ["level"] = 22},
+    [13] = {["name"] = "Crown of Earth", ["level"] = 25},
+}
+---
+This is really a map of quest ID to quest data. JSON Schema supports this
+pattern with `additionalProperties` — it describes the value type for any key,
+like a `map<string, T>`:
+---json
+{
+  "type": "object",
+  "properties": {
+    "quests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "level": {"type": "integer"}
+        }
+      }
+    }
+  }
+}
+---
+With this schema, integer keys become string keys in JSON and no array
+conversion is attempted. The `additionalProperties` schema is applied to each
+value, so nested fields are also schema-guided:
+---output
+{
+  "quests": {
+    "10": {"name": "Into the Fray", "level": 20},
+    "11": {"name": "The Lost Idol", "level": 22},
+    "13": {"name": "Crown of Earth", "level": 25}
+  }
+}
+---
+The same principle resolves empty tables. Without a schema, `{}` is ambiguous.
+With a schema declaring the type, it becomes unambiguous:
+---lua
+inventory = {}
+---
+With a schema that says `inventory` is an array:
+---json
+{"type": "object", "properties": {"inventory": {"type": "array"}}}
+---output
+{
+  "inventory": []
+}

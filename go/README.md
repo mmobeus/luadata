@@ -39,6 +39,8 @@ All functions return an `io.Reader` containing JSON.
 
 All functions accept functional options:
 
+- **`WithSchema(schemaJSON)`** — provide a JSON Schema string to guide type decisions, overriding heuristics
+- **`WithUnknownFieldMode(mode)`** — how to handle fields not in the schema (`ignore`, `include`, `fail`)
 - **`WithStringTransform(maxLen, mode, [replacement])`** — limit string length during parsing (`truncate`, `empty`, `redact`, `replace`)
 - **`WithArrayMode(mode, [maxGap])`** — control how integer-keyed Lua tables map to JSON arrays (`sparse`, `index-only`, `none`)
 - **`WithEmptyTableMode(mode)`** — choose how empty Lua tables render in JSON (`null`, `omit`, `array`, `object`)

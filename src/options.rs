@@ -43,12 +43,25 @@ pub enum EmptyTableMode {
     Object,
 }
 
+/// Controls how fields not present in the schema are handled.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum UnknownFieldMode {
+    /// Skip fields not in the schema (default).
+    Ignore,
+    /// Include unknown fields, converting without schema guidance.
+    Include,
+    /// Return an error when an unknown field is encountered.
+    Fail,
+}
+
 /// Internal configuration for parsing.
 #[derive(Debug, Clone)]
 pub struct ParseConfig {
     pub string_transform: Option<StringTransform>,
     pub array_mode: Option<ArrayMode>,
     pub empty_table_mode: EmptyTableMode,
+    pub schema: Option<crate::schema::SchemaNode>,
+    pub unknown_field_mode: UnknownFieldMode,
 }
 
 impl ParseConfig {
@@ -57,6 +70,8 @@ impl ParseConfig {
             string_transform: None,
             array_mode: None,
             empty_table_mode: EmptyTableMode::Null,
+            schema: None,
+            unknown_field_mode: UnknownFieldMode::Ignore,
         }
     }
 

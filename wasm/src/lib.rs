@@ -2,7 +2,7 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 use luadata::options::{
-    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode,
+    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode, UnknownFieldMode,
 };
 
 #[derive(Serialize)]
@@ -72,6 +72,20 @@ fn parse_js_options(opts: &JsValue) -> Result<ParseConfig, String> {
             "sparse" => ArrayMode::Sparse { max_gap },
             _ => return Err(format!("unknown arrayMode value: {:?}", am)),
         });
+    }
+
+    if let Some(uf) = get_string_field(opts, "unknownFields") {
+        config.unknown_field_mode = match uf.as_str() {
+            "ignore" => UnknownFieldMode::Ignore,
+            "include" => UnknownFieldMode::Include,
+            "fail" => UnknownFieldMode::Fail,
+            _ => return Err(format!("unknown unknownFields value: {:?}", uf)),
+        };
+    }
+
+    if let Some(schema_str) = get_string_field(opts, "schema") {
+        config.schema =
+            Some(luadata::parse_schema(&schema_str).map_err(|e| format!("schema error: {}", e))?);
     }
 
     if let Some(st) = get_object_field(opts, "stringTransform") {

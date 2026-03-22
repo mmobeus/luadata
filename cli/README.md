@@ -36,6 +36,8 @@ luadata tojson config.lua --empty-table array --array-mode sparse --array-max-ga
 
 | Flag | Description |
 |---|---|
+| `--schema <json-or-path>` | JSON Schema (inline JSON or file path) to guide conversion |
+| `--unknown-fields <mode>` | Unknown field handling: `ignore`, `include`, `fail` |
 | `--empty-table <mode>` | How to render empty tables: `null`, `omit`, `array`, `object` |
 | `--array-mode <mode>` | Array detection: `sparse`, `index-only`, `none` |
 | `--array-max-gap <n>` | Max gap for sparse array detection (default: 20) |

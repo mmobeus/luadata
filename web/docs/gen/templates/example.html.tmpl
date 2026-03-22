@@ -19,7 +19,7 @@
         <div class="col-prose">
             {{range .Left}}
             {{range $line := split .Body}}
-            <p>{{$line}}</p>
+            {{if hasPrefix $line "<ul>"}}{{$line}}{{else}}<p>{{$line}}</p>{{end}}
             {{end}}
             {{end}}
         </div>
@@ -65,6 +65,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/go.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/lua.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/rust.min.js"></script>
     <script>hljs.highlightAll();</script>
     <script src="../wasm_exec.js"></script>
     <script type="module" src="interactive.js"></script>

@@ -7,6 +7,10 @@ init().then(() => {
 });
 
 // Toggle visibility of dependent fields
+const schemaEl = document.getElementById("opt-schema");
+const unknownFieldsEl = document.getElementById("opt-unknown-fields");
+const lblUnknownFields = document.getElementById("lbl-unknown-fields");
+
 const arrayModeEl = document.getElementById("opt-array-mode");
 const maxGapEl = document.getElementById("opt-array-max-gap");
 const lblMaxGap = document.getElementById("lbl-array-max-gap");
@@ -16,6 +20,12 @@ const stringModeEl = document.getElementById("opt-string-mode");
 const lblStringMode = document.getElementById("lbl-string-mode");
 const stringReplacementEl = document.getElementById("opt-string-replacement");
 const lblStringReplacement = document.getElementById("lbl-string-replacement");
+
+function updateSchemaFields() {
+    const hasSchema = schemaEl.value.trim().length > 0;
+    unknownFieldsEl.classList.toggle("hidden", !hasSchema);
+    lblUnknownFields.classList.toggle("hidden", !hasSchema);
+}
 
 function updateArrayFields() {
     const show = arrayModeEl.value === "sparse";
@@ -34,16 +44,25 @@ function updateStringFields() {
     lblStringReplacement.classList.toggle("hidden", !showReplacement);
 }
 
+schemaEl.addEventListener("input", updateSchemaFields);
 arrayModeEl.addEventListener("change", updateArrayFields);
 stringMaxLenEl.addEventListener("input", updateStringFields);
 stringModeEl.addEventListener("change", updateStringFields);
 
 // Set initial state
+updateSchemaFields();
 updateArrayFields();
 updateStringFields();
 
 function buildOptions() {
     const opts = {};
+
+    const schema = schemaEl.value.trim();
+    if (schema) {
+        opts.schema = schema;
+        const unknownFields = unknownFieldsEl.value;
+        if (unknownFields !== "ignore") opts.unknownFields = unknownFields;
+    }
 
     const emptyTable = document.getElementById("opt-empty-table").value;
     if (emptyTable !== "null") opts.emptyTable = emptyTable;
@@ -97,6 +116,8 @@ function doConvert() {
 document.getElementById("convert-btn").addEventListener("click", doConvert);
 
 // Auto-convert when options change
+schemaEl.addEventListener("input", doConvert);
+unknownFieldsEl.addEventListener("change", doConvert);
 document.getElementById("opt-empty-table").addEventListener("change", doConvert);
 arrayModeEl.addEventListener("change", doConvert);
 maxGapEl.addEventListener("input", doConvert);

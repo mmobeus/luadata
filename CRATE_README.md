@@ -28,8 +28,9 @@ let json = text_to_json("input", lua_string, config)?;
 
 ## Options
 
-All parse functions accept a `ParseConfig` with three option groups:
+All parse functions accept a `ParseConfig` with four option groups:
 
+- **Schema** — provide a JSON Schema to guide type decisions, overriding heuristics (`schema`, `unknown_field_mode`)
 - **String transform** — limit string length during parsing (`truncate`, `empty`, `redact`, `replace`)
 - **Array detection** — control how integer-keyed Lua tables map to JSON arrays (`sparse`, `index-only`, `none`)
 - **Empty tables** — choose how empty Lua tables render in JSON (`null`, `omit`, `array`, `object`)
