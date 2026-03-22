@@ -1,6 +1,6 @@
 Array Mode: Sparse
 ---
-ArrayModeSparse is the default mode. It renders tables with integer keys
+The "sparse" array mode is the default. It renders tables with integer keys
 as JSON arrays when the gaps between consecutive keys don't exceed a
 configurable threshold. Missing indices are filled with null.
 ---lua
@@ -40,7 +40,7 @@ at 1 are allowed.
 ---go
 // MaxGap of 2: gaps up to 2 positions are allowed
 reader, err := luadata.TextToJSON("input", input,
-    luadata.WithArrayDetection(luadata.ArrayModeSparse{MaxGap: 2}),
+    luadata.WithArrayMode("sparse", 2),
 )
 ---
 With MaxGap of 2, the sparse table (which has a gap of 3 between keys

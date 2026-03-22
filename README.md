@@ -153,9 +153,76 @@ const rawBytes = [...jsonValue].map(c => c.codePointAt(0));
 rawBytes := []byte(jsonValue)
 ```
 
+When a [schema](#schema) is provided, string fields can be explicitly typed with `format: "bytes"` (emit as a JSON array of integers) or `format: "base64"` (emit as a base64-encoded string), bypassing the heuristic entirely. This is especially useful for fields known to contain binary data, since it preserves the raw bytes even when they happen to be valid UTF-8.
+
 ## Options
 
-All parse and convert functions accept options controlling three behaviors: string transform, array detection, and empty table rendering. The defaults are the same across all languages.
+All parse and convert functions accept options controlling four behaviors: schema, string transform, array detection, and empty table rendering. The defaults are the same across all languages.
+
+### Schema
+
+Provide a [JSON Schema](https://json-schema.org/) to guide the conversion. When a schema is present, it overrides heuristic-based type decisions — array detection, empty table handling, and string encoding are determined by the schema rather than guessed from the data.
+
+luadata supports a structural subset of JSON Schema: `type`, `properties`, `items`, `additionalProperties`, and `format`. Validation keywords (minLength, pattern, etc.) are ignored.
+
+Use `additionalProperties` for map-like data where keys are dynamic (e.g., quest IDs, player names). It defines the schema for any key not listed in `properties`, acting as a `map<string, T>` type.
+
+**Supported types:** `string`, `integer`, `number`, `boolean`, `null`, `object` (with `properties`), `array` (with `items`)
+
+**String formats:** `bytes` (emit as JSON array of byte values), `base64` (emit as base64-encoded string), `latin1` (force Latin-1 encoding)
+
+**Unknown field handling:** Controls what happens when the Lua data contains fields not defined in the schema's `properties`:
+
+| Mode | Behavior |
+|---|---|
+| `ignore` (default) | Unknown fields are silently omitted from output |
+| `include` | Unknown fields are included, converted without schema guidance |
+| `fail` | Return an error when an unknown field is encountered |
+
+When no schema is provided, all existing heuristic behaviors are preserved — array detection modes, empty table modes, and the UTF-8/Latin-1 string encoding heuristic all work exactly as before.
+
+**Future: round-trip support.** When JSON → Lua conversion is added, schemas will need to preserve Lua-specific type information that JSON loses (e.g., integer keys become string keys in JSON). JSON Schema supports custom extension keywords (conventionally prefixed with `x-`), which luadata already ignores during parsing. Future schemas could include hints like `"x-lua-key-type": "integer"` to enable lossless round-trips. See [#TBD](https://github.com/mmobeus/luadata/issues) for discussion.
+
+<details>
+<summary>Syntax by language</summary>
+
+**Rust:**
+```rust
+config.schema = Some(luadata::parse_schema(r#"{"type": "object", "properties": {"items": {"type": "array"}}}"#)?);
+config.unknown_field_mode = UnknownFieldMode::Ignore;
+```
+
+**Go:**
+```go
+luadata.WithSchema(`{"type": "object", "properties": {"items": {"type": "array"}}}`)
+luadata.WithUnknownFieldMode("ignore")
+```
+
+**Python:**
+```python
+lua_to_json(text, schema='{"type": "object", "properties": {"items": {"type": "array"}}}')
+lua_to_json(text, schema=schema_json, unknown_fields="include")
+```
+
+**CLI:**
+```bash
+luadata tojson file.lua --schema '{"type": "object", "properties": {"items": {"type": "array"}}}'
+luadata tojson file.lua --schema schema.json --unknown-fields fail
+```
+
+**Node.js:**
+```javascript
+convertLuaToJson(text, { schema: '{"type": "object", "properties": {"items": {"type": "array"}}}' })
+convertLuaToJson(text, { schema: schemaJson, unknownFields: "include" })
+```
+
+**WASM:**
+```javascript
+convert(text, { schema: '{"type": "object", "properties": {"items": {"type": "array"}}}' })
+convert(text, { schema: schemaJson, unknownFields: "fail" })
+```
+
+</details>
 
 ### String transform
 

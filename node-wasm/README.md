@@ -37,8 +37,9 @@ const json = convert(luaString, {
 
 ## Options
 
-The `convert` function accepts an optional options object with three groups:
+The `convert` function accepts an optional options object with four groups:
 
+- **Schema** (`schema`, `unknownFields`) — provide a JSON Schema string to guide type decisions, overriding heuristics
 - **String transform** — limit string length during parsing (`truncate`, `empty`, `redact`, `replace`)
 - **Array detection** — control how integer-keyed Lua tables map to JSON arrays (`sparse`, `index-only`, `none`)
 - **Empty tables** — choose how empty Lua tables render in JSON (`null`, `omit`, `array`, `object`)

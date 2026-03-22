@@ -24,6 +24,7 @@
         .options-grid select, .options-grid input { padding: 0.25rem 0.4rem; font-size: 0.9rem; }
         .options-grid input[type="number"] { width: 80px; }
         .options-grid input[type="text"] { width: 200px; }
+        .options-grid textarea { width: 100%; font-family: monospace; font-size: 0.85rem; padding: 0.3rem; border: 1px solid #ccc; border-radius: 3px; resize: vertical; min-height: 2.5em; }
         .hidden { display: none; }
         .inline-row { display: flex; align-items: center; gap: 0.6rem; }
         .inline-row label { margin-bottom: 0; }
@@ -75,6 +76,16 @@
 
             <label for="opt-string-replacement" id="lbl-string-replacement" class="hidden">Replacement <span class="hint" data-tip="The custom text to substitute for strings that exceed the max length. Only used when Transform is set to 'replace'.">?</span></label>
             <input type="text" id="opt-string-replacement" class="hidden" placeholder="replacement text">
+
+            <label for="opt-schema">Schema <span class="hint" data-tip="Optional JSON Schema to guide conversion. Overrides heuristic type decisions for array detection, empty tables, and string encoding. Leave empty to use default heuristics.">?</span></label>
+            <textarea id="opt-schema" rows="2" placeholder='e.g. {"type":"object","properties":{"items":{"type":"array"}}}'></textarea>
+
+            <label for="opt-unknown-fields" id="lbl-unknown-fields" class="hidden">Unknown Fields <span class="hint" data-tip="How to handle Lua fields not declared in the schema. 'ignore' omits them, 'include' keeps them, 'fail' returns an error.">?</span></label>
+            <select id="opt-unknown-fields" class="hidden">
+                <option value="ignore" selected>ignore</option>
+                <option value="include">include</option>
+                <option value="fail">fail</option>
+            </select>
         </div>
     </details>
 

@@ -77,12 +77,12 @@ type IndexGroup struct {
 
 func groupFor(index int) string {
 	switch {
-	case index < 5:
+	case index < 6:
 		return "Basics"
-	case index < 13:
+	case index < 14:
 		return "Options"
-	case index < 16:
-		return "Go API"
+	case index < 17:
+		return "Schema"
 	default:
 		return "WebAssembly"
 	}
@@ -221,6 +221,9 @@ func main() {
 	// Load templates
 	tmplDir := filepath.Join(srcDir, "templates")
 	funcMap := template.FuncMap{
+		"hasPrefix": func(s template.HTML, prefix string) bool {
+			return strings.HasPrefix(string(s), prefix)
+		},
 		"isCode": func(t string) bool {
 			return t != "prose" && t != "output"
 		},
@@ -238,23 +241,58 @@ func main() {
 			return strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[")
 		},
 		"split": func(s string) []template.HTML {
-			// Split prose into paragraphs on blank lines, then
-			// wrap standalone "luadata" mentions with a styled span.
+			// Split prose into paragraphs on blank lines, with support
+			// for markdown-style bullet lists (lines starting with "- ").
+			// Also wraps standalone "luadata" mentions with a styled span
+			// and converts [text](url) links to HTML <a> tags.
 			var paragraphs []template.HTML
 			var current []string
-			for _, line := range strings.Split(s, "\n") {
-				if strings.TrimSpace(line) == "" {
-					if len(current) > 0 {
-						paragraphs = append(paragraphs, template.HTML(markToolName(template.HTMLEscapeString(strings.Join(current, " "))))) //nolint:gosec // content is escaped above
-						current = nil
-					}
-				} else {
-					current = append(current, strings.TrimSpace(line))
+			var listItems []string
+
+			processProse := func(text string) string {
+				return markLinks(markCode(markBold(markToolName(template.HTMLEscapeString(text)))))
+			}
+
+			flushParagraph := func() {
+				if len(current) > 0 {
+					paragraphs = append(paragraphs, template.HTML(processProse(strings.Join(current, " ")))) //nolint:gosec // content is escaped above
+					current = nil
 				}
 			}
-			if len(current) > 0 {
-				paragraphs = append(paragraphs, template.HTML(markToolName(template.HTMLEscapeString(strings.Join(current, " "))))) //nolint:gosec // content is escaped above
+
+			flushList := func() {
+				if len(listItems) > 0 {
+					var buf strings.Builder
+					buf.WriteString("<ul>")
+					for _, item := range listItems {
+						buf.WriteString("<li>")
+						buf.WriteString(processProse(item))
+						buf.WriteString("</li>")
+					}
+					buf.WriteString("</ul>")
+					paragraphs = append(paragraphs, template.HTML(buf.String())) //nolint:gosec // content is escaped above
+					listItems = nil
+				}
 			}
+
+			for _, line := range strings.Split(s, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "" {
+					flushParagraph()
+					flushList()
+				} else if strings.HasPrefix(trimmed, "- ") {
+					flushParagraph()
+					listItems = append(listItems, strings.TrimPrefix(trimmed, "- "))
+				} else if len(listItems) > 0 && (strings.HasPrefix(line, "  ") || strings.HasPrefix(line, "\t")) {
+					// Continuation of previous list item
+					listItems[len(listItems)-1] += " " + trimmed
+				} else {
+					flushList()
+					current = append(current, trimmed)
+				}
+			}
+			flushParagraph()
+			flushList()
 			return paragraphs
 		},
 	}
@@ -330,6 +368,95 @@ func mustAbs(path string) string {
 // markToolName wraps standalone occurrences of "luadata" in prose text with
 // a <span class="tool-name"> tag for styling. It avoids matching inside HTML
 // tags or when "luadata" is part of a longer word.
+// markCode converts markdown-style `text` to HTML <code> tags.
+// Must be called after HTML-escaping.
+func markCode(s string) string {
+	var result strings.Builder
+	remaining := s
+	for {
+		start := strings.Index(remaining, "`")
+		if start == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		end := strings.Index(remaining[start+1:], "`")
+		if end == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		end += start + 1
+		result.WriteString(remaining[:start])
+		result.WriteString("<code>")
+		result.WriteString(remaining[start+1 : end])
+		result.WriteString("</code>")
+		remaining = remaining[end+1:]
+	}
+	return result.String()
+}
+
+// markBold converts markdown-style **text** to HTML <strong> tags.
+// Must be called after HTML-escaping.
+func markBold(s string) string {
+	var result strings.Builder
+	remaining := s
+	for {
+		start := strings.Index(remaining, "**")
+		if start == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		end := strings.Index(remaining[start+2:], "**")
+		if end == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		end += start + 2
+		result.WriteString(remaining[:start])
+		result.WriteString("<strong>")
+		result.WriteString(remaining[start+2 : end])
+		result.WriteString("</strong>")
+		remaining = remaining[end+2:]
+	}
+	return result.String()
+}
+
+// markLinks converts markdown-style [text](url) links to HTML <a> tags.
+// Must be called after HTML-escaping (the []() chars are not HTML-special).
+func markLinks(s string) string {
+	var result strings.Builder
+	remaining := s
+	for {
+		openBracket := strings.Index(remaining, "[")
+		if openBracket == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		closeBracket := strings.Index(remaining[openBracket:], "](")
+		if closeBracket == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		closeBracket += openBracket
+		closeParen := strings.Index(remaining[closeBracket+2:], ")")
+		if closeParen == -1 {
+			result.WriteString(remaining)
+			break
+		}
+		closeParen += closeBracket + 2
+
+		text := remaining[openBracket+1 : closeBracket]
+		url := remaining[closeBracket+2 : closeParen]
+		result.WriteString(remaining[:openBracket])
+		result.WriteString(`<a href="`)
+		result.WriteString(url)
+		result.WriteString(`">`)
+		result.WriteString(text)
+		result.WriteString(`</a>`)
+		remaining = remaining[closeParen+1:]
+	}
+	return result.String()
+}
+
 func markToolName(s string) string {
 	var result strings.Builder
 	remaining := s
@@ -360,8 +487,10 @@ func isWordChar(b byte) bool {
 
 func findSrcDir() string {
 	// Try to find the gen source directory. When run via `go run ./web/docs/gen`,
-	// the working directory is the module root.
+	// the working directory is the module root. When run via `cd web/docs/gen && go run .`,
+	// the working directory is already the gen directory.
 	candidates := []string{
+		".",
 		"web/docs/gen",
 		filepath.Join(filepath.Dir(mustAbs(os.Args[0])), "web/docs/gen"),
 	}

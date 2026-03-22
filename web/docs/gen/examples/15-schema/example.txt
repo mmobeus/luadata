@@ -1,0 +1,61 @@
+Schema-Guided Conversion
+---options
+{"schema":"{\"type\":\"object\",\"properties\":{\"realm\":{\"type\":\"string\"},\"players\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"number\"}}}}}}","unknownFields":"ignore"}
+---
+When converting Lua data to JSON, luadata uses heuristics to decide whether a
+table is an array or object, how to handle empty tables, and how to encode
+strings. A JSON Schema lets you declare the expected structure explicitly,
+removing the guesswork.
+
+Consider this addon data:
+---lua
+realm = "Proudmoore"
+players = {
+    {["name"] = "Thrall", ["level"] = 60, ["note"] = "GM"},
+    {["name"] = "Jaina", ["level"] = 80, ["note"] = "officer"},
+}
+lastSync = 1710547200
+---
+We can provide a schema that describes only the fields we care about. The
+schema is standard JSON Schema (the subset luadata supports: `type`,
+`properties`, `items`, `format`):
+---json
+{
+  "type": "object",
+  "properties": {
+    "realm": { "type": "string" },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "level": { "type": "number" }
+        }
+      }
+    }
+  }
+}
+---
+With this schema and the default unknown field mode (`ignore`), only `realm`
+and `players` appear in the output. Within each player, only `name` and `level`
+are kept — `note` is filtered out. The `lastSync` top-level field is also
+dropped. Notice that `level` values become floats because the schema declares
+them as `number`:
+---output
+{
+  "realm": "Proudmoore",
+  "players": [
+    {"name": "Thrall", "level": 60.0},
+    {"name": "Jaina", "level": 80.0}
+  ]
+}
+---
+The `--unknown-fields` option controls what happens with fields not in the
+schema. The default is `ignore` (omit them), but you can also use `include`
+(keep them with heuristic conversion) or `fail` (return an error):
+---bash
+luadata tojson data.lua --schema schema.json --unknown-fields include
+---
+When no schema is provided, all existing heuristic behaviors are preserved —
+array detection, empty table modes, and string encoding work exactly as before.

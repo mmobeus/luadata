@@ -105,6 +105,12 @@ func buildOptionsJSON(opts []Option) string {
 		}
 		m["string_transform"] = st
 	}
+	if cfg.schema != "" {
+		m["schema"] = cfg.schema
+	}
+	if cfg.unknownFields != "" {
+		m["unknown_fields"] = cfg.unknownFields
+	}
 
 	if len(m) == 0 {
 		return ""

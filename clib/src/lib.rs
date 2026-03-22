@@ -4,7 +4,7 @@ use std::os::raw::c_char;
 use serde::{Deserialize, Serialize};
 
 use luadata::options::{
-    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode,
+    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode, UnknownFieldMode,
 };
 
 /// JSON options structure matching the Go clib interface.
@@ -18,6 +18,10 @@ struct OptionsJSON {
     array_max_gap: Option<usize>,
     #[serde(default)]
     string_transform: Option<StringTransformJSON>,
+    #[serde(default)]
+    schema: Option<String>,
+    #[serde(default)]
+    unknown_fields: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -67,6 +71,20 @@ fn parse_options(raw: &str) -> Result<ParseConfig, String> {
             },
             _ => return Err(format!("unknown array_mode value: {:?}", am)),
         });
+    }
+
+    if let Some(ref uf) = oj.unknown_fields {
+        config.unknown_field_mode = match uf.as_str() {
+            "ignore" => UnknownFieldMode::Ignore,
+            "include" => UnknownFieldMode::Include,
+            "fail" => UnknownFieldMode::Fail,
+            _ => return Err(format!("unknown unknown_fields value: {:?}", uf)),
+        };
+    }
+
+    if let Some(ref schema_str) = oj.schema {
+        config.schema =
+            Some(luadata::parse_schema(schema_str).map_err(|e| format!("schema error: {}", e))?);
     }
 
     if let Some(ref st) = oj.string_transform {

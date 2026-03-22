@@ -2,7 +2,7 @@ Array Mode: Index Only
 ---options
 {"arrayMode":"index-only"}
 ---
-ArrayModeIndexOnly renders only implicit index tables as JSON arrays.
+The "index-only" array mode renders only implicit index tables as JSON arrays.
 Tables with explicit integer keys always render as objects.
 
 This distinguishes between two ways of writing the same data in Lua:
@@ -15,7 +15,7 @@ explicit = {
 }
 ---go
 reader, err := luadata.TextToJSON("input", input,
-    luadata.WithArrayDetection(luadata.ArrayModeIndexOnly{}),
+    luadata.WithArrayMode("index-only"),
 )
 ---output
 {

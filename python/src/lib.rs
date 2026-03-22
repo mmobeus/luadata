@@ -2,13 +2,15 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use ::luadata::options::{
-    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode,
+    ArrayMode, EmptyTableMode, ParseConfig, StringTransform, StringTransformMode, UnknownFieldMode,
 };
 
 /// Convert Lua data to a JSON string.
 ///
 /// Args:
 ///     text: Lua data as a string.
+///     schema: JSON Schema string to guide parsing.
+///     unknown_fields: How to handle fields not in schema ("ignore", "include", "fail").
 ///     empty_table: How to render empty tables ("null", "omit", "array", "object").
 ///     array_mode: Array detection mode ("none", "index-only", "sparse").
 ///     array_max_gap: Max gap for sparse array mode.
@@ -24,7 +26,8 @@ use ::luadata::options::{
 #[pyfunction]
 #[pyo3(signature = (
     text,
-    *,
+    schema=None,
+    unknown_fields=None,
     empty_table=None,
     array_mode=None,
     array_max_gap=None,
@@ -32,8 +35,11 @@ use ::luadata::options::{
     string_mode=None,
     string_replacement=None,
 ))]
+#[allow(clippy::too_many_arguments)]
 fn lua_to_json(
     text: &str,
+    schema: Option<&str>,
+    unknown_fields: Option<&str>,
     empty_table: Option<&str>,
     array_mode: Option<&str>,
     array_max_gap: Option<usize>,
@@ -42,6 +48,8 @@ fn lua_to_json(
     string_replacement: Option<&str>,
 ) -> PyResult<String> {
     let config = build_config(
+        schema,
+        unknown_fields,
         empty_table,
         array_mode,
         array_max_gap,
@@ -57,6 +65,8 @@ fn lua_to_json(
 ///
 /// Args:
 ///     text: Lua data as a string.
+///     schema: JSON Schema string to guide parsing.
+///     unknown_fields: How to handle fields not in schema ("ignore", "include", "fail").
 ///     empty_table: How to render empty tables ("null", "omit", "array", "object").
 ///     array_mode: Array detection mode ("none", "index-only", "sparse").
 ///     array_max_gap: Max gap for sparse array mode.
@@ -72,7 +82,8 @@ fn lua_to_json(
 #[pyfunction]
 #[pyo3(signature = (
     text,
-    *,
+    schema=None,
+    unknown_fields=None,
     empty_table=None,
     array_mode=None,
     array_max_gap=None,
@@ -84,6 +95,8 @@ fn lua_to_json(
 fn lua_to_dict<'py>(
     py: Python<'py>,
     text: &str,
+    schema: Option<&str>,
+    unknown_fields: Option<&str>,
     empty_table: Option<&str>,
     array_mode: Option<&str>,
     array_max_gap: Option<usize>,
@@ -93,6 +106,8 @@ fn lua_to_dict<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let json_str = lua_to_json(
         text,
+        schema,
+        unknown_fields,
         empty_table,
         array_mode,
         array_max_gap,
@@ -107,7 +122,10 @@ fn lua_to_dict<'py>(
     Ok(result)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_config(
+    schema: Option<&str>,
+    unknown_fields: Option<&str>,
     empty_table: Option<&str>,
     array_mode: Option<&str>,
     array_max_gap: Option<usize>,
@@ -116,6 +134,27 @@ fn build_config(
     string_replacement: Option<&str>,
 ) -> PyResult<ParseConfig> {
     let mut config = ParseConfig::new();
+
+    if let Some(s) = schema {
+        config.schema = Some(
+            ::luadata::parse_schema(s)
+                .map_err(|e| PyValueError::new_err(format!("schema error: {}", e)))?,
+        );
+    }
+
+    if let Some(uf) = unknown_fields {
+        config.unknown_field_mode = match uf {
+            "ignore" => UnknownFieldMode::Ignore,
+            "include" => UnknownFieldMode::Include,
+            "fail" => UnknownFieldMode::Fail,
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown unknown_fields value: {:?}",
+                    uf
+                )));
+            }
+        };
+    }
 
     if let Some(et) = empty_table {
         config.empty_table_mode = match et {

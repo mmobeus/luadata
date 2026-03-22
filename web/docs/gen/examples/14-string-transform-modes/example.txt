@@ -7,32 +7,28 @@ below use MaxLen of 10 on this input:
 ---lua
 data = "hello world, this is a long string"
 ---
-StringTransformTruncate (default) cuts the string to MaxLen:
+Truncate (default) cuts the string to the max length:
 ---json
 {
   "data": "hello worl"
 }
 ---
-StringTransformEmpty replaces the string with an empty string:
+Empty replaces the string with an empty string:
 ---json
 {
   "data": ""
 }
 ---
-StringTransformRedact replaces the string with "[redacted]":
+Redact replaces the string with "[redacted]":
 ---json
 {
   "data": "[redacted]"
 }
 ---
-StringTransformReplace uses a custom replacement string:
+Replace uses a custom replacement string:
 ---go
 reader, err := luadata.TextToJSON("input", input,
-    luadata.WithStringTransform(luadata.StringTransform{
-        MaxLen:      10,
-        Mode:        luadata.StringTransformReplace,
-        Replacement: "<too long>",
-    }),
+    luadata.WithStringTransform(10, "replace", "<too long>"),
 )
 ---json
 {

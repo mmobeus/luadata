@@ -11,7 +11,7 @@ loadWasm();
 async function loadWasm() {
     try {
         const mod = await import("../luadata.js");
-        await mod.init("../luadata.wasm");
+        await mod.init("../pkg");
         convertFn = mod.convert;
         ready = true;
     } catch (e) {
@@ -27,11 +27,17 @@ function setupBlock(block) {
 
     // Find the nearest following output block — skip if none found
     // or if the output isn't JSON (e.g. raw text from a Go program)
-    const outputBlock = findOutputBlock(block);
+    const { output: outputBlock, schema: schemaBlock } = findRelatedBlocks(block);
     if (!outputBlock) return;
     const outputText = outputBlock.querySelector("pre").textContent.trim();
     if (!outputText.startsWith("{") && !outputText.startsWith("[")) return;
     const originalOutput = outputBlock.querySelector("pre").innerHTML;
+
+    // Set up schema block editing if one exists
+    let schemaEditor = null;
+    if (schemaBlock) {
+        schemaEditor = setupSchemaEditor(schemaBlock);
+    }
 
     // Add interactive toolbar
     const toolbar = document.createElement("div");
@@ -88,6 +94,16 @@ function setupBlock(block) {
 
     textarea.addEventListener("input", autoResize);
 
+    function buildRunOptions() {
+        if (!schemaEditor) return pageOptions;
+        const schema = schemaEditor.getValue();
+        if (schema === null) return pageOptions;
+        // Merge edited schema into page options
+        const opts = Object.assign({}, pageOptions);
+        opts.schema = schema;
+        return opts;
+    }
+
     // Run conversion
     runBtn.addEventListener("click", () => {
         if (!ready) {
@@ -96,7 +112,7 @@ function setupBlock(block) {
         }
         const input = editing ? textarea.value : original;
         try {
-            const json = convertFn(input, pageOptions);
+            const json = convertFn(input, buildRunOptions());
             const pretty = JSON.stringify(JSON.parse(json), null, 2);
             updateOutput(outputBlock, pretty, false);
         } catch (e) {
@@ -120,6 +136,7 @@ function setupBlock(block) {
         preEl.title = "Click to edit";
         editing = false;
         resetBtn.style.display = "none";
+        if (schemaEditor) schemaEditor.reset();
     });
 
     // Ctrl/Cmd+Enter to run
@@ -142,19 +159,109 @@ function setupBlock(block) {
     });
 }
 
-function findOutputBlock(block) {
+function setupSchemaEditor(block) {
+    const codeEl = block.querySelector("code.language-json");
+    if (!codeEl) return null;
+
+    const original = codeEl.textContent;
+    const preEl = block.querySelector("pre");
+
+    block.classList.add("code-block-editable");
+
+    const textarea = document.createElement("textarea");
+    textarea.className = "schema-editor";
+    textarea.value = original;
+    textarea.spellcheck = false;
+    textarea.style.display = "none";
+
+    block.appendChild(textarea);
+
+    preEl.addEventListener("click", startEditing);
+    preEl.style.cursor = "pointer";
+    preEl.title = "Click to edit schema";
+
+    let editing = false;
+
+    function startEditing() {
+        if (editing) return;
+        editing = true;
+        preEl.style.display = "none";
+        textarea.style.display = "block";
+        textarea.focus();
+        autoResize();
+    }
+
+    function autoResize() {
+        textarea.style.height = "auto";
+        textarea.style.height = textarea.scrollHeight + "px";
+    }
+
+    textarea.addEventListener("input", autoResize);
+
+    // Tab inserts spaces
+    textarea.addEventListener("keydown", (e) => {
+        if (e.key === "Tab") {
+            e.preventDefault();
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            textarea.value =
+                textarea.value.substring(0, start) +
+                "  " +
+                textarea.value.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + 2;
+        }
+    });
+
+    return {
+        getValue() {
+            if (!editing) return null;
+            return textarea.value.trim();
+        },
+        reset() {
+            textarea.value = original;
+            textarea.style.display = "none";
+            preEl.style.display = "";
+            preEl.style.cursor = "pointer";
+            preEl.title = "Click to edit schema";
+            // Re-highlight
+            const code = block.querySelector("code.hljs");
+            if (code) {
+                code.textContent = original;
+                code.classList.remove("hljs");
+                code.removeAttribute("data-highlighted");
+                hljs.highlightElement(code);
+            }
+            editing = false;
+        },
+    };
+}
+
+function findRelatedBlocks(block) {
+    let output = null;
+    let schema = null;
+
+    function checkForSchema(el) {
+        if (!schema && el.classList.contains("code-block") &&
+            !el.classList.contains("code-block-lua") &&
+            el.querySelector("code.language-json")) {
+            schema = el;
+        }
+    }
+
     // First check siblings within the same .col-code container
     let el = block.nextElementSibling;
     while (el) {
-        if (el.classList.contains("output-block")) return el;
-        if (el.classList.contains("code-block-lua")) return null;
+        if (el.classList.contains("output-block")) { output = el; break; }
+        if (el.classList.contains("code-block-lua")) break;
+        checkForSchema(el);
         el = el.nextElementSibling;
     }
 
-    // If not found in the same column, walk forward through subsequent
-    // .row elements to find the first output block
+    if (output) return { output, schema };
+
+    // Walk forward through subsequent .row elements
     let row = block.closest(".row");
-    if (!row) return null;
+    if (!row) return { output: null, schema: null };
     let nextRow = row.nextElementSibling;
     while (nextRow) {
         if (!nextRow.classList.contains("row")) {
@@ -162,12 +269,17 @@ function findOutputBlock(block) {
             continue;
         }
         // Stop if this row has another Lua block
-        if (nextRow.querySelector(".code-block-lua")) return null;
-        const output = nextRow.querySelector(".output-block");
-        if (output) return output;
+        if (nextRow.querySelector(".code-block-lua")) break;
+        const out = nextRow.querySelector(".output-block");
+        if (out) { output = out; break; }
+        // Check for schema block in this row
+        const jsonBlock = nextRow.querySelector(".code-block:not(.code-block-lua)");
+        if (jsonBlock && jsonBlock.querySelector("code.language-json")) {
+            schema = jsonBlock;
+        }
         nextRow = nextRow.nextElementSibling;
     }
-    return null;
+    return { output, schema };
 }
 
 function updateOutput(outputBlock, text, isError) {

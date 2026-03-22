@@ -70,7 +70,10 @@ pub struct Value {
 #[derive(Debug, Clone)]
 pub enum RawValue {
     Table(KeyValuePairs),
-    String(std::string::String),
+    /// Raw decoded bytes from the Lua string literal (after escape processing).
+    /// The converter applies UTF-8/Latin-1 decoding or binary encoding based on
+    /// schema context. The human-readable form is in `Value::source`.
+    String(Vec<u8>),
     Int(i64),
     Float(f64),
     Bool(bool),

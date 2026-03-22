@@ -1,0 +1,50 @@
+Schema String Formats
+---options
+{"schema":"{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"serialized\":{\"type\":\"string\",\"format\":\"base64\"},\"coords\":{\"type\":\"string\",\"format\":\"bytes\"}}}"}
+---
+As described in the Binary Strings example, Lua strings are raw byte sequences.
+Without a schema, luadata applies a UTF-8/Latin-1 heuristic to decide how to
+encode them. This works well for most cases, but some strings are genuinely
+binary — packed coordinates, serialized databases, compressed blobs — and
+a consumer may want a specific encoding.
+
+JSON Schema's `format` keyword lets you declare how a string field's bytes
+should be encoded in JSON output:
+---json
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "serialized": { "type": "string", "format": "base64" },
+    "coords": { "type": "string", "format": "bytes" }
+  }
+}
+---
+Three formats are supported:
+
+- **`base64`** — encode the raw bytes as a base64 string, ideal for binary
+  blobs that need safe JSON transport.
+- **`bytes`** — emit a JSON array of integer byte values `[72, 101, ...]`,
+  useful when consumers need to process individual bytes.
+- **`latin1`** — force the Latin-1 mapping (each byte becomes its code point),
+  bypassing the UTF-8 heuristic.
+
+Without a format, the default heuristic applies (UTF-8 if valid, Latin-1
+otherwise).
+---lua
+name = "Thrall"
+serialized = "packed-quest-data"
+coords = "AB"
+---output
+{
+  "name": "Thrall",
+  "serialized": "cGFja2VkLXF1ZXN0LWRhdGE=",
+  "coords": [65, 66]
+}
+---
+The `name` field has no format, so it encodes as a normal UTF-8 string. The
+`serialized` field uses `base64`, producing a compact encoded string. The
+`coords` field uses `bytes`, producing an array of integer byte values.
+
+Try editing the schema above — change `serialized` to `"format": "bytes"` or
+remove the format entirely to see how the output changes.
