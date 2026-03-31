@@ -266,7 +266,7 @@ jobs:
           path: bin/web
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   build-python-wheels:
     needs: test-and-release
