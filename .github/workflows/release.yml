@@ -261,7 +261,7 @@ jobs:
       - name: Build site
         run: make build-site SITE_VERSION=${{ needs.test-and-release.outputs.release_tag }}
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: bin/web
 
