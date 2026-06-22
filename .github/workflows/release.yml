@@ -39,7 +39,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -69,7 +69,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -106,7 +106,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -139,7 +139,7 @@ jobs:
       release_tag: ${{ steps.release_tag.outputs.tag }}
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -245,7 +245,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.test-and-release.outputs.release_tag }}
 
@@ -293,7 +293,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.test-and-release.outputs.release_tag }}
 
@@ -323,7 +323,7 @@ jobs:
     needs: test-and-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.test-and-release.outputs.release_tag }}
 
@@ -371,7 +371,7 @@ jobs:
     environment: npm
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.test-and-release.outputs.release_tag }}
 
@@ -407,7 +407,7 @@ jobs:
     environment: npm
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.test-and-release.outputs.release_tag }}
 
@@ -456,7 +456,7 @@ jobs:
     environment: crates-io
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: ${{ needs.test-and-release.outputs.release_tag }}
 
@@ -482,7 +482,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7.0.0
         with:
           ref: main
 
